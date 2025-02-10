@@ -8,6 +8,7 @@ from torch import nn
 from torch.utils import data
 
 from torch_influence.base import BaseInfluenceModule, BaseObjective
+from tqdm.auto import tqdm
 
 
 class AutogradInfluenceModule(BaseInfluenceModule):
@@ -248,7 +249,10 @@ class LiSSAInfluenceModule(BaseInfluenceModule):
 
             h_est = vec.clone()
 
-            for t, (batch, _) in enumerate(self._loader_wrapper(sample_n_batches=self.depth, train=True)):
+            for t, (batch, _) in tqdm(
+                        enumerate(self._loader_wrapper(sample_n_batches=self.depth, train=True)), 
+                        desc="Estimating Hessian-Vector Product via LISSA", 
+                        total=self.depth):
 
                 hvp_batch = self._hvp_at_batch(batch, flat_params, vec=h_est, gnh=self.gnh)
 

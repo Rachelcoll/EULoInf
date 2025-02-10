@@ -26,6 +26,7 @@ DOGFISH_RAW_MMAP = np.load(str(DOGFISH_RAW_PATH), mmap_mode="r")
 L2_WEIGHT = 1e-4
 
 
+# split: train or validation
 def load_dogfish_examples(split, idxs):
     image = DOGFISH_RAW_MMAP[f"X_{split}"][idxs]
     label = DOGFISH_RAW_MMAP[f"Y_{split}"][idxs]
@@ -56,7 +57,7 @@ def load_inception_embeds():
             # getting Inceptionv3 embedding
             with torch.no_grad():
                 images = torch.tensor(images, dtype=torch.float32, device=DEVICE)
-                images = images.permute([0, 3, 1, 2])
+                images = images.permute([0, 3, 1, 2]) # move channel to the second dimension
                 h = model(images).cpu().numpy()
 
             X.append(h)

@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils import data
+from tqdm.auto import tqdm
 
 
 def _set_attr(obj, names, val):
@@ -153,6 +154,7 @@ class BaseInfluenceModule(abc.ABC):
         self.train_loader = train_loader
         self.test_loader = test_loader
 
+    # overridden by subclasses
     @abc.abstractmethod
     def inverse_hvp(self, vec: torch.Tensor) -> torch.Tensor:
         """Computes an inverse-Hessian vector product, where the Hessian is specifically
@@ -212,6 +214,7 @@ class BaseInfluenceModule(abc.ABC):
 
         return self.inverse_hvp(self.test_loss_grad(test_idxs))
 
+    # computes influence score of each training point of the input parameters among a set of test points
     def influences(
             self,
             train_idxs: List[int],
@@ -242,11 +245,16 @@ class BaseInfluenceModule(abc.ABC):
         Returns:
             the influence scores.
         """
-
+        print("Calculating stest...")
         stest = self.stest(test_idxs) if (stest is None) else stest.to(self.device)
-
+        
         scores = []
-        for grad_z, _ in self._loss_grad_loader_wrapper(batch_size=1, subset=train_idxs, train=True):
+        for grad_z, _ in tqdm(
+            self._loss_grad_loader_wrapper(batch_size=1, subset=train_idxs, train=True),
+            total=len(train_idxs),
+            desc="Calculating influences",  # A label for the progress bar
+            leave=True                      # Whether to leave the bar in the console after completion
+            ):
             s = grad_z @ stest
             scores.append(s)
         return torch.tensor(scores) / len(self.train_loader.dataset)
