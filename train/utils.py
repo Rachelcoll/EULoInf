@@ -11,6 +11,8 @@ if module_path not in sys.path:
 from torch_influence.base import BaseObjective
 from torch_influence.modules import CGInfluenceModule, LiSSAInfluenceModule, AutogradInfluenceModule
 from torch.utils.data import DataLoader
+import random
+
 
 def save_checkpoint(model, optimizer, epoch, sum_epochs, filepath="../checkpoint"):
     completion_rate = epoch / sum_epochs
@@ -35,7 +37,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
     return model, optimizer, epoch, completion_rate
 
 
-def train_func_classification(model, criterion, optimizer, train_loader, validation_loader, epochs):
+def train_func_classification(model, criterion, optimizer, train_loader, validation_loader, epochs, checkpoints=None):
     train_losses = []
     accuracies = []
     checkpoints = []
@@ -65,9 +67,14 @@ def train_func_classification(model, criterion, optimizer, train_loader, validat
         accuracy = (correct_count / len(validation_loader.dataset)).item()
         accuracies.append(accuracy)
         print(f"Epoch: {epoch + 1}, Train Loss: {loss}, accuracy: {accuracy}")
-        if (epoch + 1) / epochs in [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
-            checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, f"../checkpoint/{type(model).__name__}")
-            checkpoints.append(checkpoint_f)
+        if checkpoints:
+            if (epoch + 1) in checkpoints:
+                checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, f"../checkpoint/{type(model).__name__}")
+                checkpoints.append(checkpoint_f)
+        else:
+            if (epoch + 1) / epochs in [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
+                checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, f"../checkpoint/{type(model).__name__}")
+                checkpoints.append(checkpoint_f)
         
     epochs_range = range(1, epochs + 1)
     plt.figure(figsize=(10, 5))
@@ -209,3 +216,25 @@ def influence_at_checkpoints(traindata, testdata, model, optimizer,
         score = calculate_influence_score_nn(traindata, testdata, model, criterion, device, per_point=per_point, appro=appro)
         scores.append(score)
     return scores
+
+# Select (1) random 1% training data; (2) last 1% influential data; (3) rest 99% data
+def random_p_data(checkpoint_influences, train_dataset, num_data, p):
+    checkpoints_data = []
+    for _ in checkpoint_influences:
+        num_select = int(p * num_data)
+        random_data = random.sample(list(train_dataset), num_select)
+        random_data = np.array([data[0] for data in random_data])
+        checkpoints_data.append(random_data)
+    return checkpoints_data
+
+def rest_data(ckpt_influences, inf_num, train_dataset):
+    ckpt_imgs = []
+    for _, influences in enumerate(ckpt_influences):
+        sorted_influences = torch.argsort(torch.from_numpy(influences), descending=True)
+        rest_indexes = sorted_influences[inf_num:]
+        top_influential_train_data = [train_dataset[index] for index in rest_indexes]
+        imgs = []
+        for i, (img, label) in enumerate(top_influential_train_data):
+            imgs.append(np.array(img))        
+        ckpt_imgs.append(imgs)
+    return ckpt_imgs
