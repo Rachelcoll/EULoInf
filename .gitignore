@@ -134,5 +134,7 @@ dmypy.json
 
 # Project-specific
 data/
+checkpoint/
+influences/
 examples/dataset_dog-fish_train-900_test-300.npz
 examples/dataset_dog-fish_embeds.npz
