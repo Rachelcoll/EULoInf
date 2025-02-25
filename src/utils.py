@@ -1,6 +1,7 @@
 
 import os
 import torch
+import random
 import numpy as np
 from tqdm.auto import tqdm
 from logging_config import logger
@@ -8,7 +9,7 @@ from torch_influence.base import BaseObjective
 from torch_influence.modules import CGInfluenceModule, LiSSAInfluenceModule, AutogradInfluenceModule
 from torch.utils.data import DataLoader, Subset
 
-import random
+from response_types import ModelEvalObjects
 
 def random_idx(checkpoint_influences, dataset, num_data, p):
     checkpoints_indices = []
@@ -45,7 +46,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
 def train_func_classification_nn(model, criterion, optimizer, train_loader, validation_loader, epochs, record_checkpoints=None, dir_ckpt="", save=True):
     train_losses = []
     accuracies = []
-    checkpoints = []
+    checkpoint_filepaths = []
     validation_losses = []
     
     for epoch in range(epochs):
@@ -81,13 +82,14 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
             if record_checkpoints != None:
                 if (epoch + 1) in record_checkpoints:
                     checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, dir_ckpt)
-                    checkpoints.append(checkpoint_f)
+                    checkpoint_filepaths.append(checkpoint_f)
             else:
                 if (epoch + 1) / epochs in [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
                     checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, dir_ckpt)
-                    checkpoints.append(checkpoint_f)
+                    checkpoint_filepaths.append(checkpoint_f)
     train_losses = [loss.detach().numpy() for loss in train_losses]
-    return model, checkpoints, train_losses, accuracies, validation_losses
+    # return model, checkpoint_filepaths, train_losses, accuracies, validation_losses
+    return checkpoint_filepaths, ModelEvalObjects(train_losses = train_losses, accuracies = accuracies, validation_losses = validation_losses)
 
 
 def calculate_influence_score_nn(
@@ -237,19 +239,12 @@ def rest_data(ckpt_influences, inf_num, train_dataset):
     return ckpt_imgs
 
 
-def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoints, checkpoint_labels, p):
+def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoint_filepaths, checkpoint_labels, p):
     # top_ckpts_embeds = top_last_influences(influences, train_dataset, int(p*num_data))
-    validate_accuracies = []
-    validate_train_losses = []
-    validate_validation_losses = []
-    rand_validate_accuracies = []
-    rand_validate_train_losses = []
-    rand_validate_validation_losses = []
-
     num_data = len(train_dataset)
     random_indices = random_idx(influences, train_dataset, num_data, p)
     
-    for i in tqdm(range(len(checkpoints)), desc=f"Validating influences"):
+    for i in tqdm(range(len(checkpoint_filepaths)), desc=f"Validating influences"):
         sorted_influences = torch.argsort(torch.from_numpy(influences[i]), descending=True)
         top_indexes = sorted_influences[:int(p*num_data)]
         filtered_indices = [i for i in list(range(len(train_dataset))) if i not in top_indexes]
@@ -264,18 +259,13 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
 
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        _, _, val_train_losses, val_accuracies, val_validation_losses = train_func_classification_nn(
+        _, val_model_eval_obj = train_func_classification_nn(
             model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, save=False)
         
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        _, _, rand_train_losses, rand_accuracies, rand_validation_losses = train_func_classification_nn(
+        _, rand_model_eval_obj = train_func_classification_nn(
             model, criterion, optimizer, random_dataloader, test_dataloader, epochs, save=False)
         
-        validate_train_losses.append(val_train_losses)
-        validate_accuracies.append(val_accuracies)
-        validate_validation_losses.append(val_validation_losses)
-        rand_validate_validation_losses.append(rand_validation_losses)
-        rand_validate_accuracies.append(rand_accuracies)
-        rand_validate_train_losses.append(rand_train_losses)
-    return validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses
+    return val_model_eval_obj, rand_model_eval_obj
+    # return validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses
