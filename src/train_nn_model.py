@@ -53,42 +53,81 @@ class DigitNet(nn.Module):
 model = DigitNet()
 model_name = type(model).__name__
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# Train model and save check point at different stages, then compute influence scores at each stage
-logger.info("Starting model training...")
 
+# Train model and save check point at different stages
+logger.info("Starting model training...")
 num_epochs = args.num_epochs
 ckpt_min, ckpt_max = args.ckpt_min_max
 checkpoint_labels = list(range(ckpt_min, ckpt_max, args.ckpt_step)) # checkpoint_labels = np.array([3, 5, 7, 10, 15, 20, 40, 60, 80, 100])
 logger.info(f"Checkpoint Labels: {checkpoint_labels}")
-
 dir_ckpt = os.path.join(args.dir_save_ckpt, model_name)
 os.makedirs(dir_ckpt, exist_ok=True)
-model, checkpoints, train_losses, accuracies, validation_losses = train_func_classification_nn(model, nn.CrossEntropyLoss(), torch.optim.Adam(model.parameters(), lr=0.0001), mnist_train_loader, 
-                                                  mnist_test_loader, epochs=num_epochs, record_checkpoints=checkpoint_labels, dir_ckpt=dir_ckpt)
 
-checkpoints_filepaths = [os.path.join(dir_ckpt, f"epoch_{epoch}_{epoch/num_epochs}.pth") for epoch in checkpoint_labels]
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+train_func_kwargs = {
+    "model": model,
+    "criterion": nn.CrossEntropyLoss(),
+    "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
+    "train_loader": mnist_train_loader,
+    "validation_loader": mnist_test_loader, 
+    "epochs": num_epochs, 
+    "record_checkpoints": checkpoint_labels, 
+    "dir_ckpt": dir_ckpt
+}
+checkpoint_filepaths, model_eval_obj = train_func_classification_nn(**train_func_kwargs)
+
+influence_kwargs = {
+    "traindata": mnist_train_loader, 
+    "testdata": mnist_test_loader, 
+    "model": model, 
+    "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
+    "criterion":  nn.CrossEntropyLoss(), 
+    "checkpoints": checkpoint_filepaths, 
+    "device": device, 
+    "appro":"lissa"
+}
+
+# Calculate Influence Scores
 logger.info("Calculating Train influences...")
-mnist_influences = influence_at_checkpoints(mnist_train_loader, mnist_test_loader, model, optimizer,
-                                           nn.CrossEntropyLoss(), checkpoints_filepaths, device, appro="lissa")
+mnist_influences = influence_at_checkpoints(**influence_kwargs)
 
-logger.info("Saving train tensors...")
-dir_tensors = os.path.join(args.dir_save_tensors, "mnist")
-os.makedirs(dir_tensors, exist_ok=True)
-torch.save(mnist_influences, f"{dir_tensors}/mnist_influences.pt")
-torch.save(accuracies, f"{dir_tensors}/mnist_accuracies.pt")
-torch.save(validation_losses, f"{dir_tensors}/mnist_validation_losses.pt")
-torch.save(train_losses, f"{dir_tensors}/mnist_train_losses.pt")
 
+# Validate Influences
 logger.info("Validate influences...")
-validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses = validate_influence(mnist_influences, mnist_train, mnist_test_loader, DigitNet, nn.CrossEntropyLoss(), device, checkpoints, checkpoint_labels, args.p_validate)
+validate_influence_kwargs = {
+    "influences": mnist_influences,
+     "train_dataset": mnist_train,
+     "test_dataloader": mnist_test_loader,
+     "model_class": DigitNet,
+     "criterion": nn.CrossEntropyLoss(),
+     "device": device,
+     "checkpoint_filepaths": checkpoint_filepaths,
+     "checkpoint_labels": checkpoint_labels,
+     "p": args.p_validate
+    }
+val_model_eval_obj, rand_model_eval_obj = validate_influence(**validate_influence_kwargs)
 
-logger.info("Saving validate tensors...")
-torch.save(validate_train_losses, f"{dir_tensors}/mnist_validate_train_losses.pt")
-torch.save(validate_accuracies, f"{dir_tensors}/mnist_validate_accuracies.pt")
-torch.save(validate_validation_losses, f"{dir_tensors}/mnist_validate_validation_losses.pt")
-torch.save(rand_validate_train_losses, f"{dir_tensors}/mnist_rand_validate_train_losses.pt")
-torch.save(rand_validate_accuracies, f"{dir_tensors}/mnist_rand_validate_accuracies.pt")
-torch.save(rand_validate_validation_losses, f"{dir_tensors}/mnist_rand_validate_validation_losses.pt")
 
+def save_info():
+    logger.info("Saving train tensors...")
+    dir_tensors = os.path.join(args.dir_save_tensors, "mnist")
+    os.makedirs(dir_tensors, exist_ok=True)
+    torch.save(mnist_influences, f"{dir_tensors}/mnist_influences.pt")
+
+    torch.save(model_eval_obj.accuracies, f"{dir_tensors}/mnist_accuracies.pt")
+    torch.save(model_eval_obj.validation_losses, f"{dir_tensors}/mnist_validation_losses.pt")
+    torch.save(model_eval_obj.train_losses, f"{dir_tensors}/mnist_train_losses.pt")
+
+    logger.info("Saving validate tensors...")
+    torch.save(val_model_eval_obj.train_losses, f"{dir_tensors}/mnist_validate_train_losses.pt")
+    torch.save(val_model_eval_obj.accuracies, f"{dir_tensors}/mnist_validate_accuracies.pt")
+    torch.save(val_model_eval_obj.validation_losses, f"{dir_tensors}/mnist_validate_validation_losses.pt")
+
+    torch.save(rand_model_eval_obj.train_losses, f"{dir_tensors}/mnist_rand_validate_train_losses.pt")
+    torch.save(rand_model_eval_obj.accuracies, f"{dir_tensors}/mnist_rand_validate_accuracies.pt")
+    torch.save(rand_model_eval_obj.validation_losses, f"{dir_tensors}/mnist_rand_validate_validation_losses.pt")
+
+save_info()
 logger.info("Done!")
+
+
+
