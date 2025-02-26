@@ -111,20 +111,14 @@ def save_info():
     logger.info("Saving train tensors...")
     dir_tensors = os.path.join(args.dir_save_tensors, "mnist")
     os.makedirs(dir_tensors, exist_ok=True)
-    torch.save(mnist_influences, f"{dir_tensors}/mnist_influences.pt")
 
-    torch.save(model_eval_obj.accuracies, f"{dir_tensors}/mnist_accuracies.pt")
-    torch.save(model_eval_obj.validation_losses, f"{dir_tensors}/mnist_validation_losses.pt")
-    torch.save(model_eval_obj.train_losses, f"{dir_tensors}/mnist_train_losses.pt")
-
-    logger.info("Saving validate tensors...")
-    torch.save(val_model_eval_obj.train_losses, f"{dir_tensors}/mnist_validate_train_losses.pt")
-    torch.save(val_model_eval_obj.accuracies, f"{dir_tensors}/mnist_validate_accuracies.pt")
-    torch.save(val_model_eval_obj.validation_losses, f"{dir_tensors}/mnist_validate_validation_losses.pt")
-
-    torch.save(rand_model_eval_obj.train_losses, f"{dir_tensors}/mnist_rand_validate_train_losses.pt")
-    torch.save(rand_model_eval_obj.accuracies, f"{dir_tensors}/mnist_rand_validate_accuracies.pt")
-    torch.save(rand_model_eval_obj.validation_losses, f"{dir_tensors}/mnist_rand_validate_validation_losses.pt")
+    save_objs_dict = {
+        "mnist_influences": mnist_influences,
+        "model_eval_obj": model_eval_obj,
+        "val_model_eval_obj": val_model_eval_obj,
+        "rand_model_eval_obj": rand_model_eval_obj
+    }
+    torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
 save_info()
 logger.info("Done!")
