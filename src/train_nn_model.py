@@ -108,7 +108,7 @@ validate_influence_kwargs = {
      "checkpoint_labels": checkpoint_labels,
      "p": args.p_validate
     }
-val_model_eval_obj, rand_model_eval_obj = validate_influence(**validate_influence_kwargs)
+validate_list, rand_list = validate_influence(**validate_influence_kwargs)
 
 
 def save_info():
@@ -119,8 +119,8 @@ def save_info():
     save_objs_dict = {
         "mnist_influences": mnist_influences,
         "model_eval_obj": model_eval_obj,
-        "val_model_eval_obj": val_model_eval_obj,
-        "rand_model_eval_obj": rand_model_eval_obj
+        "validate_list": validate_list,
+        "rand_list": rand_list
     }
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
