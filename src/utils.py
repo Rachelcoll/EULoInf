@@ -242,13 +242,13 @@ def rest_data(ckpt_influences, inf_num, train_dataset):
 def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoint_filepaths, checkpoint_labels, p):
     # top_ckpts_embeds = top_last_influences(influences, train_dataset, int(p*num_data))
     num_data = len(train_dataset)
-    random_indices = random_idx(influences, train_dataset, num_data, p)
+    random_indices = random_idx(influences, train_dataset, num_data, 1 - p)
     validate_list = []
     rand_list = []
     
     for i in tqdm(range(len(checkpoint_filepaths)), desc=f"Validating influences"):
         sorted_influences = torch.argsort(torch.from_numpy(influences[i]), descending=True)
-        top_indexes = sorted_influences[:int((1-p)*num_data)]
+        top_indexes = sorted_influences[:int(p*num_data)]
         filtered_indices = [i for i in list(range(len(train_dataset))) if i not in top_indexes]
         residual_train_dataset = Subset(train_dataset, filtered_indices)
         residual_dataloader = DataLoader(residual_train_dataset, batch_size=20, shuffle=True)
