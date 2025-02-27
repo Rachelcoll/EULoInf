@@ -243,10 +243,12 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
     # top_ckpts_embeds = top_last_influences(influences, train_dataset, int(p*num_data))
     num_data = len(train_dataset)
     random_indices = random_idx(influences, train_dataset, num_data, p)
+    validate_list = []
+    rand_list = []
     
     for i in tqdm(range(len(checkpoint_filepaths)), desc=f"Validating influences"):
         sorted_influences = torch.argsort(torch.from_numpy(influences[i]), descending=True)
-        top_indexes = sorted_influences[:int(p*num_data)]
+        top_indexes = sorted_influences[:int((1-p)*num_data)]
         filtered_indices = [i for i in list(range(len(train_dataset))) if i not in top_indexes]
         residual_train_dataset = Subset(train_dataset, filtered_indices)
         residual_dataloader = DataLoader(residual_train_dataset, batch_size=20, shuffle=True)
@@ -261,11 +263,13 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, val_model_eval_obj = train_func_classification_nn(
             model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, save=False)
+        validate_list.append(val_model_eval_obj)
         
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, rand_model_eval_obj = train_func_classification_nn(
             model, criterion, optimizer, random_dataloader, test_dataloader, epochs, save=False)
+        rand_list.append(rand_model_eval_obj)
         
-    return val_model_eval_obj, rand_model_eval_obj
+    return validate_list, rand_list
     # return validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses
