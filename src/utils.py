@@ -28,7 +28,7 @@ def save_checkpoint(model, optimizer, epoch, sum_epochs, dir_ckpt):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
     }
-    filename = os.path.join(dir_ckpt, f"epoch_{epoch}_{completion_rate}.pth")
+    filename = os.path.join(dir_ckpt, f"{type(model).__name__}_epoch_{epoch}_{completion_rate}.pth")
     torch.save(checkpoint, filename)
     print(f"Checkpoint at {completion_rate} saved: {filename}")
     return filename
@@ -78,7 +78,7 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
         accuracy = (correct_count / len(validation_loader.dataset)).item()
         accuracies.append(accuracy)
         if save:
-            logger.debug(f"Epoch: {epoch + 1}, Train Loss: {loss}, accuracy: {accuracy}")
+            logger.info(f"Epoch: {epoch + 1}, Train Loss: {loss}, accuracy: {accuracy}")
             if record_checkpoints != None:
                 if (epoch + 1) in record_checkpoints:
                     checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, dir_ckpt)

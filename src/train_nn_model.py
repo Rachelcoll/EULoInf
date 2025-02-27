@@ -2,7 +2,8 @@ import os
 import argparse
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+import numpy as np
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from logging_config import logger
 from utils import train_func_classification_nn, influence_at_checkpoints, validate_influence
@@ -10,12 +11,12 @@ from utils import train_func_classification_nn, influence_at_checkpoints, valida
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", type=int, help="Number of epochs.", required=True)
-parser.add_argument("--ckpt_min_max", type=int, nargs=2, help="List of checkpoint numbers to save.", default=[3, 10])
-parser.add_argument("--ckpt_step", type=int, help="Intervals of checkpoints to save.", default=3)
+parser.add_argument("--ckpt_list", type=int, nargs="+", help="List of checkpoints to save.", required=True)
 parser.add_argument("--dir_data", type=str, help="Directory for datasets", required=True)
 parser.add_argument("--dir_save_ckpt", type=str, help="Directory for saving checkpoints.", required=True)
 parser.add_argument("--dir_save_tensors", type=str, help="Directory for saving tensors.", required=True)
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.95)
+parser.add_argument("--sample_size", type=int, help="Sample size for influence calculation.", required=True)
 args = parser.parse_args()
 
 transform = transforms.Compose([
@@ -23,11 +24,15 @@ transform = transforms.Compose([
     transforms.Lambda(lambda x: x.view(-1)) 
 ])
     
-mnist_train = datasets.MNIST(args.dir_data, train=True, download=False, transform=transform)
-mnist_test = datasets.MNIST(args.dir_data, train=False, download=False, transform=transform)
+mnist_train = datasets.MNIST(args.dir_data, train=True, download=True, transform=transform)
+mnist_test = datasets.MNIST(args.dir_data, train=False, download=True, transform=transform)
 logger.info("Loaded MNIST data!")
 
-mnist_train_loader = DataLoader(mnist_train, batch_size=64, shuffle=True)
+sample_size = args.sample_size
+sample_indices = np.random.choice(len(mnist_train), sample_size, replace=False)
+mnist_train_subset = Subset(mnist_train, sample_indices)
+
+mnist_train_loader = DataLoader(mnist_train_subset, batch_size=64, shuffle=True)
 mnist_test_loader = DataLoader(mnist_test, batch_size=64, shuffle=False)
 for x, y in mnist_train_loader:
     print(x.shape)
@@ -57,8 +62,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Train model and save check point at different stages
 logger.info("Starting model training...")
 num_epochs = args.num_epochs
-ckpt_min, ckpt_max = args.ckpt_min_max
-checkpoint_labels = list(range(ckpt_min, ckpt_max, args.ckpt_step)) # checkpoint_labels = np.array([3, 5, 7, 10, 15, 20, 40, 60, 80, 100])
+checkpoint_labels = args.ckpt_list # checkpoint_labels = np.array([3, 5, 7, 10, 15, 20, 40, 60, 80, 100])
 logger.info(f"Checkpoint Labels: {checkpoint_labels}")
 dir_ckpt = os.path.join(args.dir_save_ckpt, model_name)
 os.makedirs(dir_ckpt, exist_ok=True)
@@ -95,7 +99,7 @@ mnist_influences = influence_at_checkpoints(**influence_kwargs)
 logger.info("Validate influences...")
 validate_influence_kwargs = {
     "influences": mnist_influences,
-     "train_dataset": mnist_train,
+     "train_dataset": mnist_train_subset,
      "test_dataloader": mnist_test_loader,
      "model_class": DigitNet,
      "criterion": nn.CrossEntropyLoss(),
