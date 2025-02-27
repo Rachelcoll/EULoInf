@@ -30,8 +30,8 @@ logger.info("Loaded MNIST data!")
 mnist_train_loader = DataLoader(mnist_train, batch_size=64, shuffle=True)
 mnist_test_loader = DataLoader(mnist_test, batch_size=64, shuffle=False)
 for x, y in mnist_train_loader:
-    print(x.shape)
-    print(y.shape)
+    logger.debug(f"{x.shape}")
+    logger.debug(f"{y.shape}")
     break
 
 class DigitNet(nn.Module):
@@ -50,9 +50,10 @@ class DigitNet(nn.Module):
         return self.model(x)
     
 
-model = DigitNet()
-model_name = type(model).__name__
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+logger.debug(f"Device: {device}")
+model = DigitNet().to(device)
+model_name = type(model).__name__
 
 # Train model and save check point at different stages
 logger.info("Starting model training...")
@@ -70,6 +71,7 @@ train_func_kwargs = {
     "train_loader": mnist_train_loader,
     "validation_loader": mnist_test_loader, 
     "epochs": num_epochs, 
+    "device": device,
     "record_checkpoints": checkpoint_labels, 
     "dir_ckpt": dir_ckpt
 }
