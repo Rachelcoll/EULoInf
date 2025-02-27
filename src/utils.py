@@ -43,7 +43,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
     return model, optimizer, epoch, completion_rate
 
 
-def train_func_classification_nn(model, criterion, optimizer, train_loader, validation_loader, epochs, record_checkpoints=None, dir_ckpt="", save=True):
+def train_func_classification_nn(model, criterion, optimizer, train_loader, validation_loader, epochs, device="cpu", record_checkpoints=None, dir_ckpt="", save=True):
     train_losses = []
     accuracies = []
     checkpoint_filepaths = []
@@ -53,6 +53,8 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
         model.train()
         loss = 0.0
         for x_batch, y_batch in train_loader:
+            x_batch = x_batch.to(device)
+            y_batch = y_batch.to(device)
             optimizer.zero_grad()
             y_pred = model(x_batch)
             loss = criterion(y_pred, y_batch)
@@ -67,6 +69,8 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
         val_loss = 0.0
         correct_count = 0
         for x_val_batch, y_val_batch in validation_loader:
+            x_val_batch = x_val_batch.to(device)
+            y_val_batch = y_val_batch.to(device)
             y_pred = model(x_val_batch)
             predictions = torch.argmax(y_pred, dim=-1)
             result = predictions == y_val_batch
@@ -87,7 +91,7 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
                 if (epoch + 1) / epochs in [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
                     checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, dir_ckpt)
                     checkpoint_filepaths.append(checkpoint_f)
-    train_losses = [loss.detach().numpy() for loss in train_losses]
+    train_losses = [loss.item() for loss in train_losses]
     # return model, checkpoint_filepaths, train_losses, accuracies, validation_losses
     return checkpoint_filepaths, ModelEvalObjects(train_losses = train_losses, accuracies = accuracies, validation_losses = validation_losses)
 
@@ -256,19 +260,18 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
         random_dataset = Subset(train_dataset, random_indices[i])
         random_dataloader = DataLoader(random_dataset, batch_size=64, shuffle=True)
         
-        optimizer = torch.optim.Adam(model_class().parameters(), lr=0.0001)
         epochs = checkpoint_labels[i]
 
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, val_model_eval_obj = train_func_classification_nn(
-            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, save=False)
+            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, device, save=False)
         validate_list.append(val_model_eval_obj)
         
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, rand_model_eval_obj = train_func_classification_nn(
-            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, save=False)
+            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, device, save=False)
         rand_list.append(rand_model_eval_obj)
         
     return validate_list, rand_list
