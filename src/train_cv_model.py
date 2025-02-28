@@ -110,9 +110,10 @@ class V3FC(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-model = V3FC()
-model_name = type(model).__name__
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+logger.debug(f"Device: {device}")
+model = V3FC().to(device)
+model_name = type(model).__name__
 
 # Train model and save check point at different stages
 logger.info("Starting model training...")
@@ -130,6 +131,7 @@ train_func_kwargs = {
     "validation_loader": embeds_validation_loader, 
     "epochs": num_epochs, 
     "predict_func": lambda pred: (pred > 0.5).int(),
+    "device": device,
     "record_checkpoints": checkpoint_labels, 
     "dir_ckpt": dir_ckpt
 }
@@ -141,7 +143,7 @@ influence_kwargs = {
     "model": model, 
     "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
     "criterion":  nn.BCELoss(), 
-    "checkpoints": checkpoint_filepaths, 
+    "checkpoint_filepaths": checkpoint_filepaths, 
     "device": device, 
     "appro":"lissa"
 }
