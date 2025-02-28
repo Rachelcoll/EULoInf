@@ -43,7 +43,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
     return model, optimizer, epoch, completion_rate
 
 
-def train_func_classification_nn(model, criterion, optimizer, train_loader, validation_loader, epochs, record_checkpoints=None, dir_ckpt="", save=True):
+def train_func_classification(model, criterion, optimizer, train_loader, validation_loader, epochs, predict_func, record_checkpoints=None, dir_ckpt="", save=True):
     train_losses = []
     accuracies = []
     checkpoint_filepaths = []
@@ -68,7 +68,7 @@ def train_func_classification_nn(model, criterion, optimizer, train_loader, vali
         correct_count = 0
         for x_val_batch, y_val_batch in validation_loader:
             y_pred = model(x_val_batch)
-            predictions = torch.argmax(y_pred, dim=-1)
+            predictions = predict_func(y_pred)
             result = predictions == y_val_batch
             correct_count += result.sum()
             val_loss += criterion(y_pred, y_val_batch).item()
@@ -216,15 +216,14 @@ def influence_at_checkpoints(traindata, testdata, model, optimizer,
         scores.append(score)
     return scores
 
-# Select (1) random 1% training data; (2) last 1% influential data; (3) rest 99% data
-def random_p_data(checkpoint_influences, train_dataset, num_data, p):
+def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
     checkpoints_data = []
-    for _ in checkpoint_influences:
+    for _ in tqdm(checkpoint_influences):
         num_select = int(p * num_data)
         random_data = random.sample(list(train_dataset), num_select)
-        random_data = np.array([data[0] for data in random_data])
         checkpoints_data.append(random_data)
     return checkpoints_data
+
 
 def rest_data(ckpt_influences, inf_num, train_dataset):
     ckpt_imgs = []
@@ -239,7 +238,7 @@ def rest_data(ckpt_influences, inf_num, train_dataset):
     return ckpt_imgs
 
 
-def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoint_filepaths, checkpoint_labels, p):
+def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoint_filepaths, checkpoint_labels, p, predict_func):
     # top_ckpts_embeds = top_last_influences(influences, train_dataset, int(p*num_data))
     num_data = len(train_dataset)
     random_indices = random_idx(influences, train_dataset, num_data, 1 - p)
@@ -261,15 +260,26 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
 
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        _, val_model_eval_obj = train_func_classification_nn(
-            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, save=False)
+        _, val_model_eval_obj = train_func_classification(
+            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, predict_func, save=False)
         validate_list.append(val_model_eval_obj)
         
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        _, rand_model_eval_obj = train_func_classification_nn(
-            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, save=False)
+        _, rand_model_eval_obj = train_func_classification(
+            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, predict_func, save=False)
         rand_list.append(rand_model_eval_obj)
         
     return validate_list, rand_list
     # return validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses
+
+def pairwise_similarity(ckpts_indices):
+    similarities = []
+    for i in range(len(ckpts_indices)):
+        similarity = []
+        for j in range(len(ckpts_indices)):
+            common = len(set(ckpts_indices[i]).intersection(set(ckpts_indices[j])))
+            union = len(set(ckpts_indices[i]).union(set(ckpts_indices[j])))
+            similarity.append(common / union)
+        similarities.append(similarity)
+    return np.array([np.array(sim) for sim in similarities])

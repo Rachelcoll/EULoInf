@@ -4,6 +4,7 @@
 dir_data="../data/"
 dir_save_ckpt="../checkpoint/"
 dir_save_tensors="../influences/"
+dir_save_subset_indices="../data/subset_indices/"
 
 /d/anaconda3/envs/data-valuation-env/python ../src/train_nn_model.py \
         --dir_data "$dir_data" \
@@ -11,7 +12,8 @@ dir_save_tensors="../influences/"
         --ckpt_list 1 2 3 5 7 10 15 20 40 60 80 100 \
         --dir_save_ckpt "$dir_save_ckpt" \
         --dir_save_tensors "$dir_save_tensors" \
-        --sample_size 10000
+        --dir_save_subset_indices "$dir_save_subset_indices" \
+        --sample_size 8000
 
 wait
 echo "All done"
