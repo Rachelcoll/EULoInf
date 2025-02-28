@@ -5,3 +5,5 @@ tqdm
 matplotlib
 scipy
 scikit-learn
+datasets
+transformers

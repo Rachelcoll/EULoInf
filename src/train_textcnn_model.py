@@ -2,11 +2,11 @@ import os
 import argparse
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pathlib
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Subset, Dataset
-from torchvision import datasets, transforms
 from datasets import load_dataset
 from transformers import BertModel, AutoTokenizer
 from logging_config import logger
@@ -25,42 +25,44 @@ parser.add_argument("--sample_size", type=int, help="Sample size for influence c
 args = parser.parse_args()
 
 sst2_dataset = load_dataset("SetFit/sst2")
-model = BertModel.from_pretrained("bert-base-uncased")
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+logger.debug(f"Device: {device}")
+language_model = BertModel.from_pretrained("bert-base-uncased").to(device)
 
 logger.info("Loaded SST2 data!")
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-train_text_lengths = [len(tokenizer.tokenize(text)) for text in sst2_dataset['train']['text']]
-validation_text_lengths = [len(tokenizer.tokenize(text)) for text in sst2_dataset['validation']['text']]
-max_train_length = max(train_text_lengths)
-max_validation_length = max(validation_text_lengths)
-
 
 EMBEDDING_TRAIN_SST2 = "../data/sst-2/embedding_train.pt"
 EMBEDDING_VALIDATION_SST2 = "../data/sst-2/embedding_validation.pt"
-train_texts = sst2_dataset['train']['text']
-validation_texts = sst2_dataset['validation']['text']
-sst2_train_embeddings = []
-sst2_validation_embeddings = []
+
+def create_embeddings(type, dataset, model, out_filepath):
+    data_texts = dataset[type]["text"]
+    sst2_embeddings = []
+    max_length = max([len(tokenizer.tokenize(text)) for text in dataset[type]['text']])
+    for text in tqdm(data_texts, desc="Embedding train SST2", total=len(data_texts)):
+        tokenized_text = tokenizer(text, truncation=True, max_length=max_length, return_tensors="pt", padding="max_length")
+        tokenized_text = {k: v.to(device) for k, v in tokenized_text.items()}
+        with torch.no_grad():
+            embedding = model(**tokenized_text).last_hidden_state.cpu()
+        sst2_embeddings.append(embedding)
+        del tokenized_text
+        del embedding
+        torch.cuda.empty_cache()
+    torch.save(sst2_embeddings, out_filepath)
+    return sst2_embeddings
+
+
 if pathlib.Path(EMBEDDING_TRAIN_SST2).is_file() and pathlib.Path(EMBEDDING_VALIDATION_SST2).is_file():
-    sst2_train_embeddings = torch.load(EMBEDDING_TRAIN_SST2)
-    sst2_validation_embeddings = torch.load(EMBEDDING_VALIDATION_SST2)
+    sst2_train_embeddings = torch.load(EMBEDDING_TRAIN_SST2, map_location=device)
+    sst2_validation_embeddings = torch.load(EMBEDDING_VALIDATION_SST2, map_location=device)
     logger.info("Loaded SST2 embeddings!")
     
 else:
     os.makedirs("../data/sst-2", exist_ok=True)
-    for text in tqdm(train_texts, desc="Embedding train SST2", total=len(train_texts)):
-        tokenized_text = tokenizer(text, truncation=True, max_length=max_train_length, return_tensors="pt", padding="max_length")
-        embedding = model(**tokenized_text).last_hidden_state
-        sst2_train_embeddings.append(embedding)
-    torch.save(sst2_train_embeddings, EMBEDDING_TRAIN_SST2)
-        
-    for text in tqdm(validation_texts, desc="Embedding train SST2", total=len(validation_texts)):
-        tokenized_text = tokenizer(text, truncation=True, max_length=max_validation_length, return_tensors="pt", padding="max_length")
-        embedding = model(**tokenized_text).last_hidden_state
-        sst2_validation_embeddings.append(embedding)    
-    torch.save(sst2_validation_embeddings, EMBEDDING_VALIDATION_SST2)
-    
+    sst2_train_embeddings = create_embeddings(type="train", dataset=sst2_dataset, model=language_model, out_filepath=EMBEDDING_TRAIN_SST2)
+    sst2_validation_embeddings = create_embeddings(type="validation", dataset=sst2_dataset, model=language_model, out_filepath=EMBEDDING_VALIDATION_SST2)
+
 class SST2EmbedDataset(Dataset):
     def __init__(self, embeddings, labels):
         self.embeddings = embeddings
@@ -78,10 +80,10 @@ sst2_embed_train_dataset = SST2EmbedDataset(sst2_train_embeddings, sst2_dataset[
 sample_size = args.sample_size
 sample_indices = np.random.choice(len(sst2_embed_train_dataset), sample_size, replace=False)
 sst2_embed_train_subset = Subset(sst2_embed_train_dataset, sample_indices)
-sst2_embed_train_dataloader = DataLoader(sst2_embed_train_subset, batch_size=64, shuffle=True)
+sst2_embed_train_dataloader = DataLoader(sst2_embed_train_subset, batch_size=32, shuffle=True)
 
 sst2_embed_validate_dataset = SST2EmbedDataset(sst2_validation_embeddings, sst2_dataset['validation']['label'])
-sst2_embed_validate_dataloader = DataLoader(sst2_embed_validate_dataset, batch_size=64, shuffle=False)
+sst2_embed_validate_dataloader = DataLoader(sst2_embed_validate_dataset, batch_size=32, shuffle=False)
 os.makedirs(args.dir_save_subset_indices, exist_ok=True)
 torch.save(sample_indices, f"{args.dir_save_subset_indices}/sst2_embed_train_subset_indices.pt")
 logger.info("Saved subset indices!")
@@ -107,9 +109,8 @@ class TextCNN(nn.Module):
         output = self.fc(output)
         return output
 
-model = TextCNN()
+model = TextCNN().to(device)
 model_name = type(model).__name__
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Train model and save check point at different stages
 logger.info("Starting model training...")
@@ -127,6 +128,7 @@ train_func_kwargs = {
     "validation_loader": sst2_embed_validate_dataloader, 
     "epochs": num_epochs, 
     "predict_func": lambda pred: torch.argmax(pred, dim=-1),
+    "device": device,
     "record_checkpoints": checkpoint_labels, 
     "dir_ckpt": dir_ckpt
 }
@@ -138,7 +140,7 @@ influence_kwargs = {
     "model": model, 
     "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
     "criterion":  nn.CrossEntropyLoss(), 
-    "checkpoints": checkpoint_filepaths, 
+    "checkpoint_filepaths": checkpoint_filepaths, 
     "device": device, 
     "appro":"lissa"
 }
@@ -176,6 +178,8 @@ def save_info():
         "validate_list": validate_list,
         "rand_list": rand_list
     }
+    # import pickle
+    # pickle.dump(save_objs_dict, open("/home/nicole/Workspace/data_valuation/testing.pkl", "wb"))
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
 save_info()

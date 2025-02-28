@@ -80,6 +80,7 @@ train_func_kwargs = {
     "validation_loader": mnist_test_loader, 
     "epochs": num_epochs, 
     "predict_func": lambda pred: torch.argmax(pred, dim=-1),
+    "device": device,
     "record_checkpoints": checkpoint_labels, 
     "dir_ckpt": dir_ckpt
 }
@@ -91,7 +92,7 @@ influence_kwargs = {
     "model": model, 
     "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
     "criterion":  nn.CrossEntropyLoss(), 
-    "checkpoints": checkpoint_filepaths, 
+    "checkpoint_filepaths": checkpoint_filepaths, 
     "device": device, 
     "appro":"lissa"
 }
