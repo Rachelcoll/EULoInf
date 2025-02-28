@@ -4,3 +4,4 @@ torchvision
 tqdm
 matplotlib
 scipy
+scikit-learn
