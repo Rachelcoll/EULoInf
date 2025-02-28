@@ -43,7 +43,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
     return model, optimizer, epoch, completion_rate
 
 
-def train_func_classification(model, criterion, optimizer, train_loader, validation_loader, epochs, predict_func, record_checkpoints=None, dir_ckpt="", save=True):
+def train_func_classification(model, criterion, optimizer, train_loader, validation_loader, epochs, predict_func, device, record_checkpoints=None, dir_ckpt="", save=True):
     train_losses = []
     accuracies = []
     checkpoint_filepaths = []
@@ -82,7 +82,7 @@ def train_func_classification(model, criterion, optimizer, train_loader, validat
         accuracy = (correct_count / len(validation_loader.dataset)).item()
         accuracies.append(accuracy)
         if save:
-            logger.info(f"Epoch: {epoch + 1}, Train Loss: {loss}, accuracy: {accuracy}")
+            logger.debug(f"Epoch: {epoch + 1}, Train Loss: {loss}, accuracy: {accuracy}")
             if record_checkpoints != None:
                 if (epoch + 1) in record_checkpoints:
                     checkpoint_f = save_checkpoint(model, optimizer, epoch + 1, epochs, dir_ckpt)
@@ -211,9 +211,9 @@ def calculate_influence_score_nn(
     return scores
 
 def influence_at_checkpoints(traindata, testdata, model, optimizer,
-                             criterion, checkpoints, device, per_point=-1, appro="cg"):
+                             criterion, checkpoint_filepaths, device, per_point=-1, appro="cg"):
     scores = []
-    for checkpoint in tqdm(checkpoints, desc=f"Calculating influence scores"):
+    for checkpoint in tqdm(checkpoint_filepaths, desc=f"Calculating influence scores"):
         model, optimizer, _, completion_rate = load_checkpoint(model, optimizer, checkpoint)
         print(f"completion_rate: {completion_rate}" )
         score = calculate_influence_score_nn(traindata, testdata, model, criterion, device, per_point=per_point, appro=appro)
@@ -264,13 +264,13 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, val_model_eval_obj = train_func_classification(
-            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, predict_func, save=False)
+            model, criterion, optimizer, residual_dataloader, test_dataloader, epochs, predict_func, device, save=False)
         validate_list.append(val_model_eval_obj)
         
         model = model_class().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
         _, rand_model_eval_obj = train_func_classification(
-            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, predict_func, save=False)
+            model, criterion, optimizer, random_dataloader, test_dataloader, epochs, predict_func, device, save=False)
         rand_list.append(rand_model_eval_obj)
         
     return validate_list, rand_list
