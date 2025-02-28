@@ -39,8 +39,8 @@ logger.info("Saved subset indices!")
 mnist_train_loader = DataLoader(mnist_train_subset, batch_size=64, shuffle=True)
 mnist_test_loader = DataLoader(mnist_test, batch_size=64, shuffle=False)
 for x, y in mnist_train_loader:
-    print(x.shape)
-    print(y.shape)
+    logger.debug(f"{x.shape}")
+    logger.debug(f"{y.shape}")
     break
 
 class DigitNet(nn.Module):
@@ -59,9 +59,10 @@ class DigitNet(nn.Module):
         return self.model(x)
     
 
-model = DigitNet()
-model_name = type(model).__name__
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+logger.debug(f"Device: {device}")
+model = DigitNet().to(device)
+model_name = type(model).__name__
 
 # Train model and save check point at different stages
 logger.info("Starting model training...")
