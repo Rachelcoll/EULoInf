@@ -29,7 +29,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger.debug(f"Device: {device}")
 language_model = BertModel.from_pretrained("bert-base-uncased").to(device)
 
-logger.info("Loaded SST2 data!")
+logger.info("Loaded SST2 dataset!")
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
