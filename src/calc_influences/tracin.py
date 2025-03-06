@@ -37,8 +37,8 @@ def calculate_tracin_score(model, ckpt_filepaths, train_dataloader, test_dataloa
     lr = torch.tensor(lr, device=device)
     scores_matrix_list = []
     
-    for train_batch_id, (x_train, y_train) in enumerate(train_dataloader):
-        for test_batch_id, (x_test, y_test) in enumerate(tqdm(test_dataloader, desc=f"Getting grads for train batch {train_batch_id}...")):
+    for train_batch_id, (x_train, y_train) in enumerate(tqdm(train_dataloader, desc=f"Getting grads for train batch...")):
+        for test_batch_id, (x_test, y_test) in enumerate(test_dataloader):
             grad_sum = torch.zeros(x_train.shape[0], x_test.shape[0], device=device)
             for ckpt_file in ckpt_filepaths:
                 w = torch.load(ckpt_file, map_location=device)["model_state_dict"]
