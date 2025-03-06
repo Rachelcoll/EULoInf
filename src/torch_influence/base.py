@@ -245,7 +245,6 @@ class BaseInfluenceModule(abc.ABC):
         Returns:
             the influence scores.
         """
-        print("Calculating stest...")
         stest = self.stest(test_idxs) if (stest is None) else stest.to(self.device)
         
         scores = []

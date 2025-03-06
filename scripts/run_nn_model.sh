@@ -8,8 +8,8 @@ dir_save_subset_indices="../data/subset_indices/"
 
 python3 ../src/train_nn_model.py \
         --dir_data "$dir_data" \
-        --num_epochs 10 \
-        --ckpt_list 3 10 \
+        --num_epochs 100 \
+        --ckpt_list 1 2 3 5 7 10 15 20 40 60 80 100 \
         --dir_save_ckpt "$dir_save_ckpt" \
         --dir_save_tensors "$dir_save_tensors" \
         --dir_save_subset_indices "$dir_save_subset_indices" \

@@ -4,11 +4,13 @@ import pathlib
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.utils.data import DataLoader, Subset, Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms, models
 from tqdm import trange
 from logging_config import logger
-from utils import train_func_classification, influence_at_checkpoints, validate_influence
+from utils import train_func_classification, validate_influence
+from calc_influences.influence_function import influence_at_checkpoints_if
+from calc_influences.tracin import influence_at_checkpoints_tracin
 
 
 parser = argparse.ArgumentParser()
@@ -109,6 +111,11 @@ class V3FC(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+    def to(self, device):
+        super().to(device)
+        self.device = device
+        return self
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger.debug(f"Device: {device}")
@@ -137,6 +144,7 @@ train_func_kwargs = {
 }
 checkpoint_filepaths, model_eval_obj = train_func_classification(**train_func_kwargs)
 
+# Method 1: Influence Function calculation
 influence_kwargs = {
     "traindata": embeds_train_loader, 
     "testdata": embeds_validation_loader, 
@@ -147,18 +155,25 @@ influence_kwargs = {
     "device": device, 
     "appro":"lissa"
 }
+logger.info("Calculating Train influences using influence function...")
+dogfish_influences_if = influence_at_checkpoints_if(**influence_kwargs)
 
-# Calculate Influence Scores
-logger.info("Calculating Train influences...")
-dogfish_influences = influence_at_checkpoints(**influence_kwargs)
+# Method 2: Tracin calculation
+influence_kwargs = {
+    "traindata": embeds_train_loader, 
+    "testdata": embeds_validation_loader, 
+    "model": model, 
+    "criterion":  nn.BCELoss(reduction="none"),
+    "checkpoint_filepaths": checkpoint_filepaths, 
+}
+logger.info("Calculating Train influences using Tracin...")
+dogfish_influences_tracin = influence_at_checkpoints_tracin(**influence_kwargs)
 
 
 # Validate Influences
-logger.info("Validate influences...")
 embeds_data = np.load(DOGFISH_EMB_PATH, "r")
 embeds_train_dataset = DogfishDataset(embeds_data["X_train"], embeds_data["Y_train"])
 validate_influence_kwargs = {
-    "influences": dogfish_influences,
      "train_dataset": embeds_train_dataset,
      "test_dataloader": embeds_validation_loader,
      "model_class": V3FC,
@@ -169,7 +184,10 @@ validate_influence_kwargs = {
      "p": args.p_validate,
      "predict_func": lambda pred: (pred > 0.5).int()
     }
-validate_list, rand_list = validate_influence(**validate_influence_kwargs)
+logger.info("Validate influences from Influence Function...")
+validate_list_if, rand_list_if = validate_influence(influences=dogfish_influences_if, **validate_influence_kwargs)
+logger.info("Validate influences from Tracin...")
+validate_list_tracin, rand_list_tracin = validate_influence(influences=dogfish_influences_tracin, **validate_influence_kwargs)
 
 
 def save_info():
@@ -178,10 +196,13 @@ def save_info():
     os.makedirs(dir_tensors, exist_ok=True)
 
     save_objs_dict = {
-        "dogfish_influences": dogfish_influences,
         "model_eval_obj": model_eval_obj,
-        "validate_list": validate_list,
-        "rand_list": rand_list
+        "dogfish_influences_if": dogfish_influences_if,
+        "validate_list_if": validate_list_if,
+        "rand_list_if": rand_list_if,
+        "dogfish_influences_tracin": dogfish_influences_tracin,
+        "validate_list_tracin": validate_list_tracin,
+        "rand_list_tracin": rand_list_tracin,
     }
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
