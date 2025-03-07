@@ -36,7 +36,7 @@ def load_checkpoint(model, optimizer, filepath, device='cpu'):
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch = checkpoint['epoch']
     completion_rate = checkpoint['degree of completion']
-    print(f"Checkpoint loaded at epoch {epoch} with completion rate {completion_rate}")
+    # print(f"Checkpoint loaded at epoch {epoch} with completion rate {completion_rate}")
     return model, optimizer, epoch, completion_rate
 
 
