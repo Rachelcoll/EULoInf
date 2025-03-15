@@ -60,15 +60,6 @@ def create_influences_dict(save_objs_dict, ckpt_labels):
             rand_dict[f"rand_validate_validation_losses_{scoring_method}"].append(rand_list[ckpt_idx].validation_losses)
     return validate_dict, rand_dict
 
-def top_last_influences(ckpt_influences, train_embeds, num_per_row=10, descending=True):
-    top_inf_data = []
-    for influences in ckpt_influences:
-        sorted_influences = torch.argsort(torch.from_numpy(influences), descending=descending)
-        top_indexes = sorted_influences[:num_per_row]
-        top_influential_train_data = [(train_embeds[index][0].detach().squeeze(0), train_embeds[index][1]) for index in top_indexes]
-        top_inf_data.append(top_influential_train_data)
-    return top_inf_data
-
 def random_idx(checkpoint_influences, dataset, num_data, p):
     checkpoints_indices = []
     for _ in checkpoint_influences:
@@ -95,7 +86,7 @@ def calc_external_dist(inf_embeds, other_embeds):
     mean_distance = np.mean(distances)
     return mean_distance
 
-def calc_pairwise_euclideans(influences, train_subset, list_p, transform=None):
+def calc_pairwise_euclideans(influences, train_subset, list_p, top_last_influences, transform=None):
     num_data = len(train_subset)
     data_list = []
     for p in list_p:
@@ -118,19 +109,22 @@ def random_p_data(checkpoint_influences, train_dataset, num_data, p):
         checkpoints_data.append(random_data)
     return checkpoints_data
 
-def create_inf_int_distances(ckpt_embds):
+def create_inf_int_distances(ckpt_embds, transform=None):
     inf_int_distances = []
     for i in range(len(ckpt_embds)):
-        embeds = np.array([embed[0] for embed in ckpt_embds[i]])[:, 0, :]
+        embeds = np.array([embed[0] for embed in ckpt_embds[i]])
+        embeds = transform(embeds) if transform else embeds
         repre = calc_inter_dist(embeds)
         inf_int_distances.append(repre)
     return inf_int_distances
 
-def calc_dist_inf_to_others(select_inf_embeds, other_inf_embeds):
+def calc_dist_inf_to_others(select_inf_embeds, other_inf_embeds, transform=None):
     distances = []
     for i, ckpt_embeds in enumerate(select_inf_embeds):
-        inf_embeds =  np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
-        rand_embeds =  np.array([embed[0] for embed in other_inf_embeds[i]])[:, 0, :]
+        inf_embeds =  np.array([embed[0] for embed in ckpt_embeds])
+        inf_embeds = transform(inf_embeds) if transform else inf_embeds
+        rand_embeds =  np.array([embed[0] for embed in other_inf_embeds[i]])
+        rand_embeds = transform(rand_embeds) if transform else rand_embeds
         mean_dist = calc_external_dist(inf_embeds, rand_embeds)
         distances.append(mean_dist)
     return distances
@@ -143,24 +137,28 @@ def inter_sentence_entropy(sentence_embeds):
     pairwise_entropy = entropy(distance_probs)
     return pairwise_entropy
 
-def create_inter_entropies(ls_ckpt_embds):
+def create_inter_entropies(ls_ckpt_embds, transform=None):
     entropies = []
     for ckpt, ckpt_embeds in enumerate(ls_ckpt_embds):
-        embeds = np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
+        embeds = np.array([embed[0] for embed in ckpt_embeds])
+        embeds = transform(embeds) if transform else embeds
         batch_entropy = inter_sentence_entropy(embeds)
         entropies.append(batch_entropy)
     return entropies
 
-def inner_entropy(sentence_embed):
-    mean_embed = sentence_embed[0, :]
+def inner_entropy(embed):
+    mean_embed = embed[0, :]
     probabilities = torch.nn.functional.softmax(torch.tensor(mean_embed), dim=0).numpy()
     inner_entropy = entropy(probabilities)
     return inner_entropy
 
-def create_inner_entropies(ls_ckpt_embds):
+def create_inner_entropies(ls_ckpt_embds, transform=None):
     entropies = []
     for ckpt, ckpt_embeds in enumerate(ls_ckpt_embds):
-        embed_entropies = [inner_entropy(embed[0]) for embed in ckpt_embeds]
+        if transform:
+            embed_entropies = [inner_entropy(transform(embed[0])) for embed in ckpt_embeds]
+        else:
+            embed_entropies = [inner_entropy(embed[0]) for embed in ckpt_embeds]
         entropies.append(np.mean(embed_entropies))
     return entropies
 
