@@ -61,13 +61,13 @@ def create_influences_dict(save_objs_dict, ckpt_labels):
     return validate_dict, rand_dict
 
 def top_last_influences(ckpt_influences, train_embeds, num_per_row=10, descending=True):
-    top_inf_texts = []
+    top_inf_data = []
     for influences in ckpt_influences:
         sorted_influences = torch.argsort(torch.from_numpy(influences), descending=descending)
         top_indexes = sorted_influences[:num_per_row]
         top_influential_train_data = [(train_embeds[index][0].detach().squeeze(0), train_embeds[index][1]) for index in top_indexes]
-        top_inf_texts.append(top_influential_train_data)
-    return top_inf_texts
+        top_inf_data.append(top_influential_train_data)
+    return top_inf_data
 
 def random_idx(checkpoint_influences, dataset, num_data, p):
     checkpoints_indices = []
@@ -95,7 +95,7 @@ def calc_external_dist(inf_embeds, other_embeds):
     mean_distance = np.mean(distances)
     return mean_distance
 
-def calc_pairwise_euclideans(influences, train_subset, list_p):
+def calc_pairwise_euclideans(influences, train_subset, list_p, transform=None):
     num_data = len(train_subset)
     data_list = []
     for p in list_p:
@@ -103,7 +103,7 @@ def calc_pairwise_euclideans(influences, train_subset, list_p):
         top_inf_embeds = top_last_influences(influences, train_subset, int(p*num_data))
         for ckpt, ckpt_embeds in enumerate(top_inf_embeds):
             embed_inputs = np.array([embed[0] for embed in ckpt_embeds])
-            embed_inputs = embed_inputs[:, 0, :]
+            embed_inputs = transform(embed_inputs) if transform else embed_inputs
             mean_dist = calc_inter_dist(embed_inputs)
             int_distances.append(mean_dist)
         data_list.append(int_distances)
