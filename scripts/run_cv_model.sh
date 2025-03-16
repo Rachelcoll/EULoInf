@@ -1,5 +1,5 @@
 #!/bin/bash
-export CUDA_VISIBLE_DEVICES=2
+# export CUDA_VISIBLE_DEVICES=2
 
 dir_data="../data/"
 dir_save_ckpt="../checkpoint/"

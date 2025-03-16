@@ -6,7 +6,7 @@ dir_save_ckpt="../checkpoint/"
 dir_save_tensors="../influences/"
 dir_save_subset_indices="../data/subset_indices/"
 
-python3 ../src/train_nn_model.py \
+/d/anaconda3/envs/data-valuation-env/python ../src/train_nn_model.py \
         --dir_data "$dir_data" \
         --num_epochs 100 \
         --ckpt_list 1 2 3 5 7 10 15 20 40 60 80 100 \

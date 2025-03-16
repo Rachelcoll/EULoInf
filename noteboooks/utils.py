@@ -147,8 +147,7 @@ def create_inter_entropies(ls_ckpt_embds, transform=None):
     return entropies
 
 def inner_entropy(embed):
-    mean_embed = embed[0, :]
-    probabilities = torch.nn.functional.softmax(torch.tensor(mean_embed), dim=0).numpy()
+    probabilities = torch.nn.functional.softmax(torch.tensor(embed), dim=0).numpy()
     inner_entropy = entropy(probabilities)
     return inner_entropy
 
@@ -171,13 +170,13 @@ def pca(x, k):
     pca.fit(x_std)
     return pca.components_
 
-def calc_volumes(ls_ckpts_embeds):
+def calc_volumes(ls_ckpts_embeds, dim=10, transform=None):
     data_list = []
     for i, embeds in enumerate(ls_ckpts_embeds):
         volumes = []
         for ckpt_embeds in embeds:
-            mean_embeds = np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
-            W = pca(mean_embeds, 10)
+            mean_embeds = transform(np.array([embed[0] for embed in ckpt_embeds])) if transform else np.array([embed[0] for embed in ckpt_embeds])
+            W = pca(mean_embeds, dim)
             Z_embeds = mean_embeds @ W.T
             volumes.append(volume(Z_embeds))
         data_list.append(volumes)
