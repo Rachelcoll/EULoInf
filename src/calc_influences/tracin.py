@@ -12,6 +12,18 @@ def influence_at_checkpoints_tracin(traindata, testdata, model, criterion, check
         scores.append(score.cpu().numpy())
     return scores
 
+def influence_at_checkpoints_tracin_updated(traindata, testdata, model, criterion, checkpoint_filepaths, lr=0.001):
+    scores = []
+    ckpt_filepaths = []
+    for i, checkpoint in enumerate(tqdm(checkpoint_filepaths, desc=f"Calculating influence scores with Tracin")):
+        if len(ckpt_filepaths) == 0:
+            ckpt_filepaths.append(checkpoint)
+        else:
+            ckpt_filepaths = [ckpt_filepaths[-1]] + [checkpoint]
+        score = calculate_tracin_score(model, ckpt_filepaths, traindata, testdata, criterion, lr)
+        scores.append(score.cpu().numpy())
+    return scores
+
 def create_batch_grads(model, w, criterion, x_batch, y_batch):
     device = model.device
     batch_size = len(x_batch)

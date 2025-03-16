@@ -149,14 +149,3 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
         
     return validate_list, rand_list
     # return validate_train_losses, validate_accuracies, validate_validation_losses, rand_validate_train_losses, rand_validate_accuracies, rand_validate_validation_losses
-
-def pairwise_similarity(ckpts_indices):
-    similarities = []
-    for i in range(len(ckpts_indices)):
-        similarity = []
-        for j in range(len(ckpts_indices)):
-            common = len(set(ckpts_indices[i]).intersection(set(ckpts_indices[j])))
-            union = len(set(ckpts_indices[i]).union(set(ckpts_indices[j])))
-            similarity.append(common / union)
-        similarities.append(similarity)
-    return np.array([np.array(sim) for sim in similarities])
