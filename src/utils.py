@@ -30,7 +30,7 @@ def save_checkpoint(model, optimizer, epoch, sum_epochs, dir_ckpt):
     print(f"Checkpoint at {completion_rate} saved: {filename}")
     return filename
     
-def load_checkpoint(model, optimizer, filepath, device='cpu'):
+def load_checkpoint(model, optimizer, filepath, device='cpu', verbose=False):
     checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
