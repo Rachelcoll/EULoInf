@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader, Subset, Dataset
 from datasets import load_dataset
 from transformers import BertModel, AutoTokenizer
 from logging_config import logger
-from utils import train_func_classification, validate_influence
+from utils import set_seed, train_func_classification, validate_influence
 from calc_influences.influence_function import influence_at_checkpoints_if
-from calc_influences.tracin import influence_at_checkpoints_tracin
+from calc_influences.tracin import influence_at_checkpoints_tracin_updated
 
 
 parser = argparse.ArgumentParser()
@@ -25,6 +25,7 @@ parser.add_argument("--dir_save_subset_indices", type=str, help="Directory for s
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.05)
 parser.add_argument("--sample_size", type=int, help="Sample size for influence calculation.", required=True)
 args = parser.parse_args()
+set_seed()
 
 sst2_dataset = load_dataset("SetFit/sst2")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -154,6 +155,9 @@ influence_kwargs = {
 }
 logger.info("Calculating Train influences using influence function...")
 sst2_influences_if = influence_at_checkpoints_if(**influence_kwargs)
+import pickle
+pickle.dump(sst2_influences_if, open("/home/nicole/Workspace/data_valuation/influences/sst2/sst2_influences_if.pkl", "wb"))
+
 
 # Method 2: Tracin calculation
 influence_kwargs = {
@@ -164,7 +168,8 @@ influence_kwargs = {
     "checkpoint_filepaths": checkpoint_filepaths, 
 }
 logger.info("Calculating Train influences using Tracin...")
-sst2_influences_tracin = influence_at_checkpoints_tracin(**influence_kwargs)
+sst2_influences_tracin = influence_at_checkpoints_tracin_updated(**influence_kwargs)
+pickle.dump(sst2_influences_tracin, open("/home/nicole/Workspace/data_valuation/influences/sst2/sst2_influences_tracin.pkl", "wb"))
 
 
 # Validate Influences

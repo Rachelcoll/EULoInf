@@ -18,6 +18,15 @@ def pairwise_similarity(ckpts_indices):
         similarities.append(similarity)
     return np.array([np.array(sim) for sim in similarities])
 
+def top_last_influences(ckpt_influences, train_embeds, num_per_row=10, descending=True):
+    top_inf_texts = []
+    for influences in ckpt_influences:
+        sorted_influences = torch.argsort(torch.from_numpy(influences), descending=descending)
+        top_indexes = sorted_influences[:num_per_row]
+        top_influential_train_data = [(train_embeds[index][0].detach().squeeze(0), train_embeds[index][1]) for index in top_indexes]
+        top_inf_texts.append(top_influential_train_data)
+    return top_inf_texts
+
 def top_inf_indices(ckpts_influences, num_per_row):
     top_inf_indices = []
     for ckpt_influences in ckpts_influences:
@@ -86,7 +95,7 @@ def calc_external_dist(inf_embeds, other_embeds):
     mean_distance = np.mean(distances)
     return mean_distance
 
-def calc_pairwise_euclideans(influences, train_subset, list_p, top_last_influences, transform=None):
+def calc_pairwise_euclideans(influences, train_subset, list_p):
     num_data = len(train_subset)
     data_list = []
     for p in list_p:
@@ -94,7 +103,7 @@ def calc_pairwise_euclideans(influences, train_subset, list_p, top_last_influenc
         top_inf_embeds = top_last_influences(influences, train_subset, int(p*num_data))
         for ckpt, ckpt_embeds in enumerate(top_inf_embeds):
             embed_inputs = np.array([embed[0] for embed in ckpt_embeds])
-            embed_inputs = transform(embed_inputs) if transform else embed_inputs
+            embed_inputs = embed_inputs[:, 0, :]
             mean_dist = calc_inter_dist(embed_inputs)
             int_distances.append(mean_dist)
         data_list.append(int_distances)
@@ -109,22 +118,29 @@ def random_p_data(checkpoint_influences, train_dataset, num_data, p):
         checkpoints_data.append(random_data)
     return checkpoints_data
 
-def create_inf_int_distances(ckpt_embds, transform=None):
+def create_inf_int_distances(ckpt_embds, transform=None, option="nn"):
     inf_int_distances = []
     for i in range(len(ckpt_embds)):
-        embeds = np.array([embed[0] for embed in ckpt_embds[i]])
-        embeds = transform(embeds) if transform else embeds
+        if (option == "nn") or (option == "cv"):
+            embeds = np.array([embed[0] for embed in ckpt_embds[i]])
+            embeds = transform(embeds) if transform else embeds
+        elif option == "textcnn":
+            embeds = np.array([embed[0] for embed in ckpt_embds[i]])[:, 0, :]
         repre = calc_inter_dist(embeds)
         inf_int_distances.append(repre)
     return inf_int_distances
 
-def calc_dist_inf_to_others(select_inf_embeds, other_inf_embeds, transform=None):
+def calc_dist_inf_to_others(select_inf_embeds, other_inf_embeds, transform=None, option="nn"):
     distances = []
     for i, ckpt_embeds in enumerate(select_inf_embeds):
-        inf_embeds =  np.array([embed[0] for embed in ckpt_embeds])
-        inf_embeds = transform(inf_embeds) if transform else inf_embeds
-        rand_embeds =  np.array([embed[0] for embed in other_inf_embeds[i]])
-        rand_embeds = transform(rand_embeds) if transform else rand_embeds
+        if (option == "nn") or (option == "cv"):
+            inf_embeds =  np.array([embed[0] for embed in ckpt_embeds])
+            inf_embeds = transform(inf_embeds) if transform else inf_embeds
+            rand_embeds =  np.array([embed[0] for embed in other_inf_embeds[i]])
+            rand_embeds = transform(rand_embeds) if transform else rand_embeds
+        elif option=="textcnn":
+            inf_embeds =  np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
+            rand_embeds =  np.array([embed[0] for embed in other_inf_embeds[i]])[:, 0, :]
         mean_dist = calc_external_dist(inf_embeds, rand_embeds)
         distances.append(mean_dist)
     return distances
@@ -137,11 +153,14 @@ def inter_sentence_entropy(sentence_embeds):
     pairwise_entropy = entropy(distance_probs)
     return pairwise_entropy
 
-def create_inter_entropies(ls_ckpt_embds, transform=None):
+def create_inter_entropies(ls_ckpt_embds, transform=None, option="nn"):
     entropies = []
     for ckpt, ckpt_embeds in enumerate(ls_ckpt_embds):
-        embeds = np.array([embed[0] for embed in ckpt_embeds])
-        embeds = transform(embeds) if transform else embeds
+        if (option == "nn") or (option == "cv"):
+            embeds = np.array([embed[0] for embed in ckpt_embeds])
+            embeds = transform(embeds) if transform else embeds
+        elif option=="textcnn":
+            embeds = np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
         batch_entropy = inter_sentence_entropy(embeds)
         entropies.append(batch_entropy)
     return entropies
@@ -170,12 +189,15 @@ def pca(x, k):
     pca.fit(x_std)
     return pca.components_
 
-def calc_volumes(ls_ckpts_embeds, dim=10, transform=None):
+def calc_volumes(ls_ckpts_embeds, dim=10, transform=None, option="nn"):
     data_list = []
     for i, embeds in enumerate(ls_ckpts_embeds):
         volumes = []
         for ckpt_embeds in embeds:
-            mean_embeds = transform(np.array([embed[0] for embed in ckpt_embeds])) if transform else np.array([embed[0] for embed in ckpt_embeds])
+            if (option == "nn") or (option == "cv"):
+                mean_embeds = transform(np.array([embed[0] for embed in ckpt_embeds])) if transform else np.array([embed[0] for embed in ckpt_embeds])
+            elif option=="textcnn":
+                mean_embeds = np.array([embed[0] for embed in ckpt_embeds])[:, 0, :]
             W = pca(mean_embeds, dim)
             Z_embeds = mean_embeds @ W.T
             volumes.append(volume(Z_embeds))

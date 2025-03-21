@@ -56,7 +56,7 @@ def calculate_tracin_score(model, ckpt_filepaths, train_dataloader, test_dataloa
                 w = torch.load(ckpt_file, map_location=device)["model_state_dict"]
 
                 train_grad_batch =  create_batch_grads(model, w, criterion, x_train, y_train) # gets out (num_in_batch, param size)
-                test_grad_batch =  create_batch_grads(model, w, criterion, x_test, y_test)# gets out (num_in_batch, param size)
+                test_grad_batch =  create_batch_grads(model, w, criterion, x_test, y_test) # gets out (num_in_batch, param size)
                 grad_sum +=  (lr * train_grad_batch @ test_grad_batch.T)
             
             scores_matrix_list.append(grad_sum)
@@ -66,6 +66,7 @@ def calculate_tracin_score(model, ckpt_filepaths, train_dataloader, test_dataloa
     
     # Avg influence scores of a set of each train data point wrt (mean) test loss over set of test data points
     tracins_scores = tracins_scores.mean(dim=1) 
+    # tracins_scores = tracins_scores.max(dim=1).values
     return tracins_scores
 
 

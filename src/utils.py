@@ -8,6 +8,13 @@ from logging_config import logger
 from torch.utils.data import DataLoader, Subset
 from response_types import ModelEvalObjects
 
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
 def random_idx(checkpoint_influences, dataset, num_data, p):
     checkpoints_indices = []
     for _ in checkpoint_influences:
@@ -90,6 +97,7 @@ def train_func_classification(model, criterion, optimizer, train_loader, validat
                     checkpoint_filepaths.append(checkpoint_f)
     train_losses = [loss.item() for loss in train_losses]
     # return model, checkpoint_filepaths, train_losses, accuracies, validation_losses
+    
     return checkpoint_filepaths, ModelEvalObjects(train_losses = train_losses, accuracies = accuracies, validation_losses = validation_losses)
 
 
