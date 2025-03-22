@@ -6,7 +6,9 @@ import numpy as np
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from logging_config import logger
-from utils import train_func_classification, influence_at_checkpoints, validate_influence
+from utils import train_func_classification, validate_influence
+from calc_influences.influence_function import influence_at_checkpoints_if
+from calc_influences.tracin import influence_at_checkpoints_tracin
 
 
 parser = argparse.ArgumentParser()
@@ -57,6 +59,11 @@ class DigitNet(nn.Module):
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
+
+    def to(self, device):
+        super().to(device)
+        self.device = device
+        return self
     
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -86,6 +93,7 @@ train_func_kwargs = {
 }
 checkpoint_filepaths, model_eval_obj = train_func_classification(**train_func_kwargs)
 
+# Method 1: Influence Function calculation
 influence_kwargs = {
     "traindata": mnist_train_loader, 
     "testdata": mnist_test_loader, 
@@ -96,27 +104,37 @@ influence_kwargs = {
     "device": device, 
     "appro":"lissa"
 }
+logger.info("Calculating Train influences using influence function...")
+mnist_influences_if = influence_at_checkpoints_if(**influence_kwargs)
 
-# Calculate Influence Scores
-logger.info("Calculating Train influences...")
-mnist_influences = influence_at_checkpoints(**influence_kwargs)
+# Method 2: Tracin calculation
+influence_kwargs = {
+    "traindata": mnist_train_loader, 
+    "testdata": mnist_test_loader, 
+    "model": model, 
+    "criterion":  nn.CrossEntropyLoss(reduction="none"), 
+    "checkpoint_filepaths": checkpoint_filepaths, 
+}
+logger.info("Calculating Train influences using Tracin...")
+mnist_influences_tracin = influence_at_checkpoints_tracin(**influence_kwargs)
 
 
 # Validate Influences
-logger.info("Validate influences...")
 validate_influence_kwargs = {
-    "influences": mnist_influences,
-     "train_dataset": mnist_train_subset,
-     "test_dataloader": mnist_test_loader,
-     "model_class": DigitNet,
-     "criterion": nn.CrossEntropyLoss(),
-     "device": device,
-     "checkpoint_filepaths": checkpoint_filepaths,
-     "checkpoint_labels": checkpoint_labels,
-     "p": args.p_validate,
-     "predict_func": lambda pred: torch.argmax(pred, dim=-1)
+    "train_dataset": mnist_train_subset,
+    "test_dataloader": mnist_test_loader,
+    "model_class": DigitNet,
+    "criterion": nn.CrossEntropyLoss(),
+    "device": device,
+    "checkpoint_filepaths": checkpoint_filepaths,
+    "checkpoint_labels": checkpoint_labels,
+    "p": args.p_validate,
+    "predict_func": lambda pred: torch.argmax(pred, dim=-1)
     }
-validate_list, rand_list = validate_influence(**validate_influence_kwargs)
+logger.info("Validate influences from Influence Function...")
+validate_list_if, rand_list_if = validate_influence(influences=mnist_influences_if, **validate_influence_kwargs)
+logger.info("Validate influences from Tracin...")
+validate_list_tracin, rand_list_tracin = validate_influence(influences=mnist_influences_tracin, **validate_influence_kwargs)
 
 
 def save_info():
@@ -125,10 +143,13 @@ def save_info():
     os.makedirs(dir_tensors, exist_ok=True)
 
     save_objs_dict = {
-        "mnist_influences": mnist_influences,
         "model_eval_obj": model_eval_obj,
-        "validate_list": validate_list,
-        "rand_list": rand_list
+        "mnist_influences_if": mnist_influences_if,
+        "validate_list_if": validate_list_if,
+        "rand_list_if": rand_list_if,
+        "mnist_influences_tracin": mnist_influences_tracin,
+        "validate_list_tracin": validate_list_tracin,
+        "rand_list_tracin": rand_list_tracin
     }
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 

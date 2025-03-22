@@ -10,7 +10,9 @@ from torch.utils.data import DataLoader, Subset, Dataset
 from datasets import load_dataset
 from transformers import BertModel, AutoTokenizer
 from logging_config import logger
-from utils import train_func_classification, influence_at_checkpoints, validate_influence
+from utils import set_seed, train_func_classification, validate_influence
+from calc_influences.influence_function import influence_at_checkpoints_if
+from calc_influences.tracin import influence_at_checkpoints_tracin_updated
 
 
 parser = argparse.ArgumentParser()
@@ -23,6 +25,7 @@ parser.add_argument("--dir_save_subset_indices", type=str, help="Directory for s
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.05)
 parser.add_argument("--sample_size", type=int, help="Sample size for influence calculation.", required=True)
 args = parser.parse_args()
+set_seed()
 
 sst2_dataset = load_dataset("SetFit/sst2")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -80,10 +83,10 @@ sst2_embed_train_dataset = SST2EmbedDataset(sst2_train_embeddings, sst2_dataset[
 sample_size = args.sample_size
 sample_indices = np.random.choice(len(sst2_embed_train_dataset), sample_size, replace=False)
 sst2_embed_train_subset = Subset(sst2_embed_train_dataset, sample_indices)
-sst2_embed_train_dataloader = DataLoader(sst2_embed_train_subset, batch_size=32, shuffle=True)
+sst2_embed_train_dataloader = DataLoader(sst2_embed_train_subset, batch_size=64, shuffle=True)
 
 sst2_embed_validate_dataset = SST2EmbedDataset(sst2_validation_embeddings, sst2_dataset['validation']['label'])
-sst2_embed_validate_dataloader = DataLoader(sst2_embed_validate_dataset, batch_size=32, shuffle=False)
+sst2_embed_validate_dataloader = DataLoader(sst2_embed_validate_dataset, batch_size=64, shuffle=False)
 os.makedirs(args.dir_save_subset_indices, exist_ok=True)
 torch.save(sample_indices, f"{args.dir_save_subset_indices}/sst2_embed_train_subset_indices.pt")
 logger.info("Saved subset indices!")
@@ -108,6 +111,11 @@ class TextCNN(nn.Module):
         output = self.dropout(output)
         output = self.fc(output)
         return output
+    
+    def to(self, device):
+        super().to(device)
+        self.device = device
+        return self
 
 model = TextCNN().to(device)
 model_name = type(model).__name__
@@ -134,6 +142,7 @@ train_func_kwargs = {
 }
 checkpoint_filepaths, model_eval_obj = train_func_classification(**train_func_kwargs)
 
+# Method 1: Influence Function calculation
 influence_kwargs = {
     "traindata": sst2_embed_train_dataloader, 
     "testdata": sst2_embed_validate_dataloader, 
@@ -144,16 +153,27 @@ influence_kwargs = {
     "device": device, 
     "appro":"lissa"
 }
+logger.info("Calculating Train influences using influence function...")
+sst2_influences_if = influence_at_checkpoints_if(**influence_kwargs)
+import pickle
+pickle.dump(sst2_influences_if, open("/home/nicole/Workspace/data_valuation/influences/sst2/sst2_influences_if.pkl", "wb"))
 
-# Calculate Influence Scores
-logger.info("Calculating Train influences...")
-sst2_influences = influence_at_checkpoints(**influence_kwargs)
+
+# Method 2: Tracin calculation
+influence_kwargs = {
+    "traindata": sst2_embed_train_dataloader, 
+    "testdata": sst2_embed_validate_dataloader, 
+    "model": model, 
+    "criterion":  nn.CrossEntropyLoss(reduction="none"), 
+    "checkpoint_filepaths": checkpoint_filepaths, 
+}
+logger.info("Calculating Train influences using Tracin...")
+sst2_influences_tracin = influence_at_checkpoints_tracin_updated(**influence_kwargs)
+pickle.dump(sst2_influences_tracin, open("/home/nicole/Workspace/data_valuation/influences/sst2/sst2_influences_tracin.pkl", "wb"))
 
 
 # Validate Influences
-logger.info("Validate influences...")
 validate_influence_kwargs = {
-    "influences": sst2_influences,
      "train_dataset": sst2_embed_train_subset,
      "test_dataloader": sst2_embed_validate_dataloader,
      "model_class": TextCNN,
@@ -164,7 +184,10 @@ validate_influence_kwargs = {
      "p": args.p_validate,
      "predict_func": lambda pred: torch.argmax(pred, dim=-1)
     }
-validate_list, rand_list = validate_influence(**validate_influence_kwargs)
+logger.info("Validate influences from Influence Function...")
+validate_list_if, rand_list_if = validate_influence(influences=sst2_influences_if, **validate_influence_kwargs)
+logger.info("Validate influences from Tracin...")
+validate_list_tracin, rand_list_tracin = validate_influence(influences=sst2_influences_tracin, **validate_influence_kwargs)
 
 
 def save_info():
@@ -173,13 +196,14 @@ def save_info():
     os.makedirs(dir_tensors, exist_ok=True)
 
     save_objs_dict = {
-        "sst2_influences": sst2_influences,
         "model_eval_obj": model_eval_obj,
-        "validate_list": validate_list,
-        "rand_list": rand_list
+        "sst2_influences_if": sst2_influences_if,
+        "validate_list_if": validate_list_if,
+        "rand_list_if": rand_list_if,
+        "sst2_influences_tracin": sst2_influences_tracin,
+        "validate_list_tracin": validate_list_tracin,
+        "rand_list_tracin": rand_list_tracin
     }
-    # import pickle
-    # pickle.dump(save_objs_dict, open("/home/nicole/Workspace/data_valuation/testing.pkl", "wb"))
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
 save_info()
