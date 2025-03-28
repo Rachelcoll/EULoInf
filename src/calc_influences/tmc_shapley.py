@@ -6,14 +6,15 @@ from tqdm.auto import tqdm
 import torch
 import torch.nn.functional as F
 from torch.utils.data import RandomSampler, DataLoader
+from torchvision import transforms
 from utils import load_checkpoint
 
-def influence_at_checkpoints_tmc_shapley(traindata, testdata, model, optimizer, checkpoint_filepaths, device):
+def influence_at_checkpoints_tmc_shapley(traindata, testdata, model, optimizer, predict_func, checkpoint_filepaths, device):
     scores = []
     for checkpoint in tqdm(checkpoint_filepaths, desc=f"Calculating TMC Shapley scores"):
         model, _, _, completion_rate = load_checkpoint(model, optimizer, checkpoint)
-        shap = DShap(model, traindata.dataset, testdata.dataset, device)
-        shap.run(iterations=100, err=0.1, tolerance=0.01)
+        shap = DShap(model, predict_func, traindata.dataset, testdata.dataset, device)
+        shap.run(iterations=500, err=0.1, tolerance=0.01)
         score = shap.vals_tmc
         scores.append(score)
     return scores
@@ -28,18 +29,19 @@ def error(mem):
     # print('Error: {}'.format(errors))
     return errors
 
-def accuracy(logits, labels):
+def accuracy(predict_func, y_pred, labels):
     correct, total = 0, 0
     with torch.no_grad():
-        preds = F.softmax(logits, dim=1)
-        predicted = torch.argmax(preds, dim=1)
+        # preds = F.softmax(y_pred, dim=1)
+        # predicted = torch.argmax(preds, dim=1)
+        predicted = predict_func(y_pred)
     total += labels.size(0)
     correct += (predicted == labels).sum().item()
     return correct / total
 
 class DShap(object):
     
-    def __init__(self, model, train_dataset, test_dataset, device,
+    def __init__(self, model, predict_func, train_dataset, test_dataset, device,
                  directory=None, seed=10):
         """
         Args:
@@ -61,14 +63,16 @@ class DShap(object):
                 os.makedirs(directory)  
 
         self.model = model
-        self.train_set = train_dataset
-        self.test_set = test_dataset
+        self.predict_func = predict_func
+        transform = transforms.Lambda(lambda x: torch.tensor(x, dtype=torch.float32))
+        self.train_set = [(transform(x), y) for x, y in train_dataset]
+        self.test_set = [(transform(x), y) for x, y in test_dataset]
         self.train_len = len(self.train_set)
         self.device = device
 
         self.mem_tmc = np.zeros((0, self.train_len))
         self.idxs_tmc = np.zeros((0, self.train_len), int)
-        test_classes = torch.tensor([label for _, label in self.test_set])
+        test_classes = torch.tensor([label for _, label in self.test_set]).to(torch.int64)
         self.random_score = torch.max(torch.bincount(test_classes) / len(self.test_set) ).item()
 
         self.tmc_number = self._which_parallel(self.directory)
@@ -168,7 +172,7 @@ class DShap(object):
                 labels = torch.stack(label_list, 0)
 
             data, labels = data.to(self.device), labels.to(self.device)
-            new_score = accuracy(self.model(data), labels)
+            new_score = accuracy(predict_func=self.predict_func, y_pred=self.model(data), labels=labels)
 
             marginal_contribs[idx] = (new_score - old_score)  
             distance_to_full_score = np.abs(new_score - self.mean_score)
@@ -194,7 +198,7 @@ class DShap(object):
             # 1-pass
             for data, labels in loader:
                 data, labels = data.to(self.device), labels.to(self.device)
-                acc = accuracy(self.model(data), labels)
+                acc = accuracy(predict_func=self.predict_func, y_pred=self.model(data), labels=labels)
                 scores.append(acc)
                 break
 

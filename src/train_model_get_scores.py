@@ -17,8 +17,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--data_name", type=str, help="Name of dataset.", required=True)
 parser.add_argument("--model_name", type=str, help="Name of model to use.", required=True)
 parser.add_argument("--dir_data", type=str, help="Directory for datasets", required=True)
-parser.add_argument("--train_size", type=int, help="Train samples.", required=True)
-parser.add_argument("--batch_size", type=int, help="Batch size.", required=True)
+parser.add_argument("--train_size", type=int, help="Train samples.")
+parser.add_argument("--batch_size", type=int, help="Batch size.")
 parser.add_argument("--dir_save_subset_indices", type=str, help="Directory for saving subset indices.", required=True)
 
 # Training related
@@ -118,6 +118,7 @@ if "tmc_shapley" in args.scoring_methods:
         "testdata": test_loader,
         "model": model,
         "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
+        "predict_func": predict_func,
         "checkpoint_filepaths": checkpoint_filepaths,
         "device": device
     }
