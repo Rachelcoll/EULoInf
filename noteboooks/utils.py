@@ -44,10 +44,10 @@ def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
     return checkpoints_data
 
 
-def create_influences_dict(save_objs_dict, ckpt_labels):
+def create_influences_dict(save_objs_dict, ckpt_labels, scoring_methods):
     validate_dict = {}
     rand_dict = {}
-    for scoring_method in ["if", "tracin"]:
+    for scoring_method in scoring_methods:
         validate_list = save_objs_dict[f"validate_list_{scoring_method}"]
         rand_list = save_objs_dict[f"rand_list_{scoring_method}"]
 
