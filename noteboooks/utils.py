@@ -95,7 +95,7 @@ def calc_external_dist(inf_embeds, other_embeds):
     mean_distance = np.mean(distances)
     return mean_distance
 
-def calc_pairwise_euclideans(influences, train_subset, list_p):
+def calc_pairwise_euclideans(influences, train_subset, list_p, transform=None, option="nn"):
     num_data = len(train_subset)
     data_list = []
     for p in list_p:
@@ -103,7 +103,10 @@ def calc_pairwise_euclideans(influences, train_subset, list_p):
         top_inf_embeds = top_last_influences(influences, train_subset, int(p*num_data))
         for ckpt, ckpt_embeds in enumerate(top_inf_embeds):
             embed_inputs = np.array([embed[0] for embed in ckpt_embeds])
-            embed_inputs = embed_inputs[:, 0, :]
+            if (option == "nn") or (option == "cv"):
+                 embed_inputs = transform(embed_inputs) if transform else embed_inputs
+            elif option == "textcnn":
+                embed_inputs = embed_inputs[:, 0, :]
             mean_dist = calc_inter_dist(embed_inputs)
             int_distances.append(mean_dist)
         data_list.append(int_distances)

@@ -11,9 +11,13 @@ from response_types import ModelEvalObjects
 def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+
+
+def incremental_save(args, obj, step_name):
+    dir_tensors = os.path.join(args.dir_save_tensors, f"tmp_saves/{args.data_name}")
+    os.makedirs(dir_tensors, exist_ok=True)
+    torch.save(obj, f"{dir_tensors}/accuracies_and_losses.pt")
+    logger.info(f"Saved intermediate step {step_name}")
 
 def random_idx(checkpoint_influences, dataset, num_data, p):
     checkpoints_indices = []

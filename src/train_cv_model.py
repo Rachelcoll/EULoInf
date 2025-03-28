@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms, models
 from tqdm import trange
 from logging_config import logger
-from utils import train_func_classification, validate_influence
+from utils import set_seed, train_func_classification, validate_influence
 from calc_influences.influence_function import influence_at_checkpoints_if
 from calc_influences.tracin import influence_at_checkpoints_tracin
 
@@ -22,7 +22,7 @@ parser.add_argument("--dir_save_tensors", type=str, help="Directory for saving t
 parser.add_argument("--dir_save_subset_indices", type=str, help="Directory for saving subset indices.", required=True)
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.05)
 args = parser.parse_args()
-
+set_seed()
     
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

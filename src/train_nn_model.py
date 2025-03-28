@@ -6,9 +6,10 @@ import numpy as np
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from logging_config import logger
-from utils import train_func_classification, validate_influence
+from utils import set_seed, train_func_classification, validate_influence
 from calc_influences.influence_function import influence_at_checkpoints_if
 from calc_influences.tracin import influence_at_checkpoints_tracin
+from calc_influences.tmc_shapley import influence_at_checkpoints_tmc_shapley
 
 
 parser = argparse.ArgumentParser()
@@ -21,6 +22,7 @@ parser.add_argument("--dir_save_subset_indices", type=str, help="Directory for s
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.05)
 parser.add_argument("--sample_size", type=int, help="Sample size for influence calculation.", required=True)
 args = parser.parse_args()
+set_seed()
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -118,6 +120,15 @@ influence_kwargs = {
 logger.info("Calculating Train influences using Tracin...")
 mnist_influences_tracin = influence_at_checkpoints_tracin(**influence_kwargs)
 
+# Method 3: TMC Shapely calculation
+influence_kwargs = {
+    "traindata": mnist_train_loader,
+    "testdata": mnist_test_loader,
+    "model": model,
+    "optimizer": torch.optim.Adam(model.parameters(), lr=0.0001),
+    "checkpoint_filepaths": checkpoint_filepaths
+}
+mnist_influences_tmc_shapley = influence_at_checkpoints_tmc_shapley(**influence_kwargs)
 
 # Validate Influences
 validate_influence_kwargs = {
@@ -135,6 +146,8 @@ logger.info("Validate influences from Influence Function...")
 validate_list_if, rand_list_if = validate_influence(influences=mnist_influences_if, **validate_influence_kwargs)
 logger.info("Validate influences from Tracin...")
 validate_list_tracin, rand_list_tracin = validate_influence(influences=mnist_influences_tracin, **validate_influence_kwargs)
+logger.info("Validate influences from TMC Shapley...")
+validate_list_tmc_shapley, rand_list_tmc_shapley = validate_influence(influences=mnist_influences_tmc_shapley, **validate_influence_kwargs)
 
 
 def save_info():
@@ -149,7 +162,10 @@ def save_info():
         "rand_list_if": rand_list_if,
         "mnist_influences_tracin": mnist_influences_tracin,
         "validate_list_tracin": validate_list_tracin,
-        "rand_list_tracin": rand_list_tracin
+        "rand_list_tracin": rand_list_tracin,
+        "mnist_influences_tmc_shapley": mnist_influences_tmc_shapley,
+        "validate_list_tmc_shapley": validate_list_tmc_shapley,
+        "rand_list_tmc_shapley": rand_list_tmc_shapley
     }
     torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 
