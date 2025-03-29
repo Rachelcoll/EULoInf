@@ -149,7 +149,7 @@ for method in args.scoring_methods:
 # SAVE DATA
 time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 logger.info("Saving all tensors...")
-dir_tensors = os.path.join(args.dir_save_tensors, f"{args.data_name}_{time_suffix}")
+dir_tensors = os.path.join(args.dir_save_tensors, args.data_name, f"{args.data_name}_{time_suffix}")
 os.makedirs(dir_tensors, exist_ok=True)
 torch.save(save_objs_dict, f"{dir_tensors}/accuracies_and_losses.pt")
 logger.info("Done!")

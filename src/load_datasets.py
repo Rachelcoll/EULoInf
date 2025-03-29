@@ -25,8 +25,9 @@ def load_mnist(args):
 
     sample_indices = np.random.choice(len(train), args.train_size, replace=False)
     train_subset = Subset(train, sample_indices)
-    os.makedirs(args.dir_save_subset_indices, exist_ok=True)
-    torch.save(sample_indices, f"{args.dir_save_subset_indices}/train_subset_indices.pt")
+    subset_dir = os.path.join(args.dir_save_subset_indices, "mnist")
+    os.makedirs(subset_dir, exist_ok=True)
+    torch.save(sample_indices, f"{subset_dir}/train_subset_indices.pt")
     logger.info("Saved subset indices!")
 
     train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True)

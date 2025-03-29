@@ -18,14 +18,14 @@ def pairwise_similarity(ckpts_indices):
         similarities.append(similarity)
     return np.array([np.array(sim) for sim in similarities])
 
-def top_last_influences(ckpt_influences, train_embeds, num_per_row=10, descending=True):
-    top_inf_texts = []
+def top_last_influences(ckpt_influences, train_dataset, num_per_row=10, descending=True):
+    ckpts_top_inf_data = []
     for influences in ckpt_influences:
         sorted_influences = torch.argsort(torch.from_numpy(influences), descending=descending)
         top_indexes = sorted_influences[:num_per_row]
-        top_influential_train_data = [(train_embeds[index][0].detach().squeeze(0), train_embeds[index][1]) for index in top_indexes]
-        top_inf_texts.append(top_influential_train_data)
-    return top_inf_texts
+        top_influential_train_data = [(train_dataset[index][0], train_dataset[index][1]) for index in top_indexes]
+        ckpts_top_inf_data.append(top_influential_train_data)
+    return ckpts_top_inf_data
 
 def top_inf_indices(ckpts_influences, num_per_row):
     top_inf_indices = []

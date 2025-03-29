@@ -140,7 +140,7 @@ def validate_influence(influences, train_dataset, test_dataloader, model_class, 
         top_indexes = sorted_influences[:int(p*num_data)]
         filtered_indices = [i for i in list(range(len(train_dataset))) if i not in top_indexes]
         residual_train_dataset = Subset(train_dataset, filtered_indices)
-        residual_dataloader = DataLoader(residual_train_dataset, batch_size=20, shuffle=True)
+        residual_dataloader = DataLoader(residual_train_dataset, batch_size=64, shuffle=True)
         
         random_dataset = Subset(train_dataset, random_indices[i])
         random_dataloader = DataLoader(random_dataset, batch_size=64, shuffle=True)

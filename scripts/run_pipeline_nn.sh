@@ -8,10 +8,10 @@ dir_save_subset_indices="../data/subset_indices/"
 
 data_name="mnist"
 model_name="digitnet"
-train_size=1000
+train_size=8000
 batch_size=64
 
-python3 ../src/train_model_get_scores.py \
+/d/anaconda3/envs/data-valuation-env/python ../src/train_model_get_scores.py \
         --data_name "$data_name" \
         --model_name "$model_name" \
         --dir_data "$dir_data" \
@@ -22,7 +22,7 @@ python3 ../src/train_model_get_scores.py \
         --ckpt_list 1 2 3 5 7 10 15 20 40 60 80 100 \
         --dir_save_ckpt "$dir_save_ckpt" \
         --dir_save_tensors "$dir_save_tensors" \
-        --scoring_methods if tracin tmc_shapley
+        --scoring_methods if
 
 wait
 echo "All done"

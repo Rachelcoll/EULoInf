@@ -9,16 +9,16 @@ dir_save_subset_indices="../data/subset_indices/"
 data_name="dogfish"
 model_name="v3fc"
 
-python3 ../src/train_model_get_scores.py \
+/d/anaconda3/envs/data-valuation-env/python ../src/train_model_get_scores.py \
         --data_name "$data_name" \
         --model_name "$model_name" \
         --dir_data "$dir_data" \
         --dir_save_subset_indices "$dir_save_subset_indices" \
-        --num_epochs 10 \
-        --ckpt_list 1 3 10 \
+        --num_epochs 100 \
+        --ckpt_list 1 2 3 5 10 15 20 40 60 80 100 \
         --dir_save_ckpt "$dir_save_ckpt" \
         --dir_save_tensors "$dir_save_tensors" \
-        --scoring_methods tmc_shapley
+        --scoring_methods if
 
 wait
 echo "All done"
