@@ -6,6 +6,10 @@ from sklearn.metrics.pairwise import euclidean_distances
 from scipy.spatial.distance import pdist
 from scipy.stats import entropy
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from src.utils import load_checkpoint
+from scipy.interpolate import griddata
+import matplotlib.patches as mpatches
 
 def pairwise_similarity(ckpts_indices):
     similarities = []
@@ -207,4 +211,42 @@ def calc_volumes(ls_ckpts_embeds, dim=10, transform=None, option="nn"):
         data_list.append(volumes)
     return data_list
 
+def tsne_all_dataset(train_dataset, transform=None):
+    all_data_x = np.array([embed[0] for embed in train_dataset])
+    all_data_y = np.array([embed[1] for embed in train_dataset], dtype=np.int32)
+    tsne = TSNE(n_components=2, random_state=0, perplexity=min(1, len(all_data_x)))
+    if transform:
+        all_data_x = transform(all_data_x) if transform else all_data_x
+    all_x_2d = tsne.fit_transform(all_data_x)
+    return all_x_2d, all_data_y, all_data_x
 
+def plt_decision_boundary(
+    top_inf_indices,
+    checkpoint_labels,
+    all_x_2d, 
+    all_data_y,
+    all_y_pred,
+    ax, i, 
+    custom_cmap,
+    norm
+    ):
+    top_inf_x_2d = all_x_2d[top_inf_indices]
+    top_inf_y_real = all_data_y[top_inf_indices]
+    sc = ax.scatter(top_inf_x_2d[:, 0], top_inf_x_2d[:, 1], 
+                c=top_inf_y_real, cmap=custom_cmap, norm=norm, edgecolors='k')
+    # plt.scatter(all_x_2d[:, 0], all_x_2d[:, 1], c=all_data_y, cmap='viridis', alpha=0.5)
+
+    x_min, x_max = all_x_2d[:, 0].min() - 1, all_x_2d[:, 0].max() + 1
+    y_min, y_max = all_x_2d[:, 1].min() - 1, all_x_2d[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 300),
+                        np.linspace(y_min, y_max, 300))
+    grid_pred = griddata(all_x_2d, all_y_pred, (xx, yy), method='nearest')
+
+    ax.contourf(xx, yy, grid_pred, alpha=0.3, cmap=custom_cmap, norm=norm)
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    class_patches = [mpatches.Patch(color=custom_cmap(norm(label)), label=f"Class {label}") for label in range(custom_cmap.N)]
+    legend_points = ax.legend(*sc.legend_elements(), loc="upper right", title=f"Influential Points")
+    legend_background = ax.legend(handles=class_patches, loc="upper left", title=f"checkpoint {checkpoint_labels[i]} labels")
+    ax.add_artist(legend_background)
+    return ax
