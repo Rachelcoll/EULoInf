@@ -11,11 +11,11 @@ model_name="textcnn"
 train_size=5000
 batch_size=64
 
-/d/anaconda3/envs/data-valuation-env/python ../src/train_model_get_scores.py \
+python3 ../src/train_model_get_scores.py \
         --data_name "$data_name" \
         --model_name "$model_name" \
         --dir_data "$dir_data" \
-        -- train_size "$train_size" \
+        --train_size "$train_size" \
         --batch_size "$batch_size" \
         --dir_save_subset_indices "$dir_save_subset_indices" \
         --num_epochs 100 \

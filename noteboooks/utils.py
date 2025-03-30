@@ -27,7 +27,7 @@ def top_last_influences(ckpt_influences, train_dataset, num_per_row=10, descendi
     for influences in ckpt_influences:
         sorted_influences = torch.argsort(torch.from_numpy(influences), descending=descending)
         top_indexes = sorted_influences[:num_per_row]
-        top_influential_train_data = [(train_dataset[index][0], train_dataset[index][1]) for index in top_indexes]
+        top_influential_train_data = [(train_dataset[index][0].squeeze(), train_dataset[index][1]) for index in top_indexes]
         ckpts_top_inf_data.append(top_influential_train_data)
     return ckpts_top_inf_data
 
@@ -39,14 +39,22 @@ def top_inf_indices(ckpts_influences, num_per_row):
         top_inf_indices.append(top_indexes)
     return top_inf_indices
 
-def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
+# def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
+#     checkpoints_data = []
+#     for _ in tqdm(checkpoint_influences):
+#         num_select = int(p * num_data)
+#         random_data = random.sample(list(train_dataset), num_select)
+#         checkpoints_data.append(random_data)
+#     return checkpoints_data
+
+def random_p_data(checkpoint_influences, train_dataset, num_data, p):
     checkpoints_data = []
-    for _ in tqdm(checkpoint_influences):
+    for _ in checkpoint_influences:
         num_select = int(p * num_data)
         random_data = random.sample(list(train_dataset), num_select)
+        random_data = [(data[0].detach().numpy().squeeze(0), data[1]) for data in random_data]
         checkpoints_data.append(random_data)
     return checkpoints_data
-
 
 def create_influences_dict(save_objs_dict, ckpt_labels, scoring_methods):
     validate_dict = {}
@@ -115,15 +123,6 @@ def calc_pairwise_euclideans(influences, train_subset, list_p, transform=None, o
             int_distances.append(mean_dist)
         data_list.append(int_distances)
     return data_list
-
-def random_p_data(checkpoint_influences, train_dataset, num_data, p):
-    checkpoints_data = []
-    for _ in checkpoint_influences:
-        num_select = int(p * num_data)
-        random_data = random.sample(list(train_dataset), num_select)
-        random_data = [(data[0].detach().numpy().squeeze(0), data[1]) for data in random_data]
-        checkpoints_data.append(random_data)
-    return checkpoints_data
 
 def create_inf_int_distances(ckpt_embds, transform=None, option="nn"):
     inf_int_distances = []

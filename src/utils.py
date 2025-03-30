@@ -106,13 +106,13 @@ def train_func_classification(model, criterion, optimizer, train_loader, validat
 
 
 
-def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
-    checkpoints_data = []
-    for _ in tqdm(checkpoint_influences):
-        num_select = int(p * num_data)
-        random_data = random.sample(list(train_dataset), num_select)
-        checkpoints_data.append(random_data)
-    return checkpoints_data
+# def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
+#     checkpoints_data = []
+#     for _ in tqdm(checkpoint_influences):
+#         num_select = int(p * num_data)
+#         random_data = random.sample(list(train_dataset), num_select)
+#         checkpoints_data.append(random_data)
+#     return checkpoints_data
 
 
 def rest_data(ckpt_influences, inf_num, train_dataset):
