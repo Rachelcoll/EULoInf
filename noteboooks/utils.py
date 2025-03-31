@@ -39,14 +39,6 @@ def top_inf_indices(ckpts_influences, num_per_row):
         top_inf_indices.append(top_indexes)
     return top_inf_indices
 
-# def random_p_data(checkpoint_influences, train_dataset, num_data, p=0.01):
-#     checkpoints_data = []
-#     for _ in tqdm(checkpoint_influences):
-#         num_select = int(p * num_data)
-#         random_data = random.sample(list(train_dataset), num_select)
-#         checkpoints_data.append(random_data)
-#     return checkpoints_data
-
 def random_p_data(checkpoint_influences, train_dataset, num_data, p):
     checkpoints_data = []
     for _ in checkpoint_influences:

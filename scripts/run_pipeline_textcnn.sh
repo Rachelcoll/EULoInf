@@ -8,7 +8,7 @@ dir_save_subset_indices="../data/subset_indices/"
 
 data_name="sst2"
 model_name="textcnn"
-train_size=5000
+train_size=2000
 batch_size=64
 
 python3 ../src/train_model_get_scores.py \
