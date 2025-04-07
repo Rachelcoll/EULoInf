@@ -43,17 +43,26 @@ def plot_train_val_loss_acc_separately(epochs_range, train_losses, validation_lo
 def plot_loss_acc_difference(diff_val_loss, diff_accuracy, scoring_method, p):
     num_epochs = len(diff_val_loss)
     x_vals = list(range(1, num_epochs+1))
-
+    color1 = 'tab:blue'
+    color2 = 'tab:red'
     fig, ax1 = plt.subplots(figsize=(10, 5))
     ax1.set_xlim(min(x_vals), max(x_vals))
 
-    ax1.plot(diff_val_loss, label='diff val_loss')
+    ax1.plot(diff_val_loss, label='diff val_loss', color=color1)
     ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Validation Loss')
+    ax1.set_ylabel('Validation Loss', color=color1)
 
     ax2 = ax1.twinx()
-    ax2.plot(diff_accuracy, label='diff_accuracy', color='r')
-    ax2.set_ylabel('Accuracy')
+    ax2.plot(diff_accuracy, label='diff_accuracy', color=color2)
+    ax2.set_ylabel('Accuracy', color=color2)
+    
+    ax1.tick_params(axis='y', labelcolor=color1)
+    ax2.tick_params(axis='y', labelcolor=color2)
+    ax1.spines['left'].set_color(color1)
+    ax1.spines['left'].set_linewidth(3)
+    ax2.spines['right'].set_color(color2)
+    ax2.spines['right'].set_linewidth(2)
+    
     plt.title(f'{scoring_method}: Validation of influence with top {np.round(p, 2)*100}% influential data points removed')
     fig.legend(loc='upper left', bbox_to_anchor=(1,1))
     plt.show()

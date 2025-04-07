@@ -52,7 +52,7 @@ def random_p_data(checkpoint_influences, train_dataset, num_data, p):
     for _ in checkpoint_influences:
         num_select = int(p * num_data)
         random_data = random.sample(list(train_dataset), num_select)
-        random_data = [(data[0].detach().numpy().squeeze(0), data[1]) for data in random_data]
+        random_data = [(data[0], data[1]) for data in random_data]
         checkpoints_data.append(random_data)
     return checkpoints_data
 
