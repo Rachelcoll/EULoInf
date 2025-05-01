@@ -10,6 +10,7 @@ from sklearn.manifold import TSNE
 from src.utils import load_checkpoint
 from scipy.interpolate import griddata
 import matplotlib.patches as mpatches
+from sklearn.metrics.pairwise import cosine_similarity
 
 def pairwise_similarity(ckpts_indices):
     similarities = []
@@ -219,7 +220,8 @@ def plt_decision_boundary(
     all_y_pred,
     ax, i, 
     custom_cmap,
-    norm
+    norm,
+    unique_labels,
     ):
     top_inf_x_2d = all_x_2d[top_inf_indices]
     top_inf_y_real = all_data_y[top_inf_indices]
@@ -236,8 +238,20 @@ def plt_decision_boundary(
     ax.contourf(xx, yy, grid_pred, alpha=0.3, cmap=custom_cmap, norm=norm)
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
-    class_patches = [mpatches.Patch(color=custom_cmap(norm(label)), label=f"Class {label}") for label in range(custom_cmap.N)]
+    class_patches = [mpatches.Patch(color=custom_cmap(norm(label)), label=f"Class {label}") for label in unique_labels]
     legend_points = ax.legend(*sc.legend_elements(), loc="upper right", title=f"Influential Points")
     legend_background = ax.legend(handles=class_patches, loc="upper left", title=f"checkpoint {checkpoint_labels[i]} labels")
     ax.add_artist(legend_background)
     return ax
+
+def pw_cos_similarity(ckpts_embeds):
+    similarities = []
+    for i in range(len(ckpts_embeds)):
+        similarity = []
+        data_i = [embed[0] for embed in ckpts_embeds[i]]
+        for j in range(len(ckpts_embeds)):
+            data_j = [embed[0] for embed in ckpts_embeds[j]]
+            sim = np.mean(cosine_similarity(data_i, data_j))
+            similarity.append(sim)
+        similarities.append(similarity)
+    return np.array(similarities)

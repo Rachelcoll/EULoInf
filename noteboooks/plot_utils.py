@@ -69,12 +69,20 @@ def plot_loss_acc_difference(diff_val_loss, diff_accuracy, scoring_method, p):
 
 
 def plot_var_acc_legends(x_vals, ckpt_labels, accuracies, data,
-                         title, y_label, legend_labels):
+                         title, y_label, legend_labels, highlight_regions=None):
     fig, ax1 = plt.subplots(figsize=(10, 5))
     ax1.set_xlim(min(x_vals), max(x_vals))
 
     for i in range(len(data)):
-        ax1.plot(ckpt_labels, data[i], 'o-', label=legend_labels[i])
+        if i == 1 and highlight_regions:
+            ax1.plot(ckpt_labels, data[i], 'o-', label=legend_labels[i], alpha=0.3)
+        else:
+            ax1.plot(ckpt_labels, data[i], 'o-', label=legend_labels[i])
+
+    colors = ['#CCFF00', '#39FF14']
+    if highlight_regions:
+        for i, (start, end) in enumerate(highlight_regions):
+            ax1.axvspan(start, end, facecolor=colors[i], alpha=0.2)
 
     plt.title(title)
     ax1.set_xticks(ckpt_labels)
@@ -82,7 +90,7 @@ def plot_var_acc_legends(x_vals, ckpt_labels, accuracies, data,
     ax1.set_ylabel(y_label)
     ax2 = ax1.twinx()
     ax2.set_ylabel("Accuracy")
-    ax2.plot(accuracies, label="Accuracy", color='k')
+    ax2.plot(accuracies, label="Accuracy", color='k', alpha=0.3)
 
     fig.legend(loc='upper left', bbox_to_anchor=(1,1))
     plt.show()
@@ -105,3 +113,14 @@ def plot_similar_indices(pw_similarities_lowp, pw_similarities_highp, ckpt_label
     plt.tight_layout()
 
     plt.show()
+    
+def plot_cosine_similarity(pw_similarities_lowp, ckpt_labels, p):
+    fig = plt.figure(figsize=(10, 8))
+    ax1 = fig.add_subplot()
+    im1 = ax1.imshow(pw_similarities_lowp, cmap='viridis', interpolation='nearest')
+    fig.colorbar(im1, ax=ax1, label='Similarity')
+    ax1.set_xticks(range(len(ckpt_labels)), ckpt_labels)
+    ax1.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
+    ax1.set_title(f'Checkpoint Pairwise Top {p*100}% Influential Point Similarity Heatmap')
+    plt.show()
+    
