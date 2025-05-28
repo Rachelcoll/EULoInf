@@ -258,6 +258,19 @@ class BaseInfluenceModule(abc.ABC):
             scores.append(s)
         return torch.tensor(scores) / len(self.train_loader.dataset)
 
+    def influences_without_hessian(self, train_idxs: List[int], test_idxs: List[int]) -> torch.Tensor:
+        test_grad = self.test_loss_grad(test_idxs)
+        scores = []
+        for grad_z, _ in tqdm(
+            self._loss_grad_loader_wrapper(batch_size=1, subset=train_idxs, train=True),
+            total=len(train_idxs),
+            desc="Calculating influences without hessian",  # A label for the progress bar
+            leave=True                      # Whether to leave the bar in the console after completion
+            ):
+            s = grad_z @ test_grad
+            scores.append(s)
+        return torch.tensor(scores) / len(self.train_loader.dataset)
+    
     # ====================================================
     # Private helper functions
     # ====================================================

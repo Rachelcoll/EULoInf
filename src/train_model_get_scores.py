@@ -7,7 +7,7 @@ from utils import set_seed, incremental_save, train_func_classification, validat
 from load_datasets import load_mnist, load_dogfish, load_sst2
 from load_models import DigitNet, V3FC, TextCNN
 from calc_influences.influence_function import influence_at_checkpoints_if
-from calc_influences.tracin import influence_at_checkpoints_tracin
+from calc_influences.tracin import influence_at_checkpoints_tracin, influence_at_checkpoints_tracin_updated
 from calc_influences.tmc_shapley import influence_at_checkpoints_tmc_shapley
 from datetime import datetime
 from logging_config import logger
@@ -28,6 +28,7 @@ parser.add_argument("--dir_save_ckpt", type=str, help="Directory for saving chec
 
 # Valuation related
 parser.add_argument("--scoring_methods", type=str, nargs="+", help="List of valuation methods to do.", required=True)
+parser.add_argument("--appro", type=str, help="Approximations for influence function.", default="lissa")
 parser.add_argument("--dir_save_tensors", type=str, help="Directory for saving tensors.", required=True)
 parser.add_argument("--p_validate", type=float, help="Proportion of data to validate influences.", default=0.05)
 
@@ -89,11 +90,14 @@ if "if" in args.scoring_methods:
         "criterion":  criterion, 
         "checkpoint_filepaths": checkpoint_filepaths, 
         "device": device, 
-        "appro":"lissa"
+        "appro": args.appro,
     }
-    logger.info("Calculating train influences using influence function...")
+    logger.info(f"Calculating train influences using influence function with method {args.appro}...")
     influences_if = influence_at_checkpoints_if(**influence_kwargs)
-    save_objs_dict.update({"influences_if": influences_if})
+    if args.appro != "lissa":
+        save_objs_dict.update({f"influences_if_{args.appro}": influences_if})
+    else:
+        save_objs_dict.update({"influences_if": influences_if})
     incremental_save(args, save_objs_dict, step_name="if")
 
 
@@ -107,7 +111,7 @@ if "tracin" in args.scoring_methods:
         "checkpoint_filepaths": checkpoint_filepaths, 
     }
     logger.info("Calculating train influences using Tracin...")
-    influences_tracin = influence_at_checkpoints_tracin(**influence_kwargs)
+    influences_tracin = influence_at_checkpoints_tracin_updated(**influence_kwargs)
     save_objs_dict.update({"influences_tracin": influences_tracin})
     incremental_save(args, save_objs_dict, step_name="tracin")
 
@@ -141,6 +145,8 @@ validate_influence_kwargs = {
     }
 for method in args.scoring_methods:
     logger.info(f"Validate influences from {method}...")
+    if method == "if" and args.appro != "lissa":
+        method = f"{method}_{args.appro}"
     influences = save_objs_dict[f"influences_{method}"]
     validate_list, rand_list = validate_influence(influences=influences, **validate_influence_kwargs)
     save_objs_dict.update({f"validate_list_{method}": validate_list, f"rand_list_{method}": rand_list})

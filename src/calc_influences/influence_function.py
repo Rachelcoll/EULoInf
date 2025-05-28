@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from utils import load_checkpoint
 from torch_influence.base import BaseObjective
-from torch_influence.modules import CGInfluenceModule, LiSSAInfluenceModule, AutogradInfluenceModule
+from torch_influence.modules import CGInfluenceModule, LiSSAInfluenceModule, AutogradInfluenceModule, BlankInfluenceModule
 
 def influence_at_checkpoints_if(traindata, testdata, model, optimizer,
                              criterion, checkpoint_filepaths, device, per_point=-1, appro="cg"):
@@ -112,6 +112,17 @@ def calculate_influence_score_if(
             device=device,
             damp=0.003
         )
+    elif appro == "no_hessian":
+        module = BlankInfluenceModule(
+            model=model,
+            objective=NNObjective(),
+            train_loader=traindata,
+            test_loader=testdata,
+            device=device,
+        )
+
+        scores = module.influences_without_hessian(np.arange(trainidx), np.arange(testidx)).cpu().numpy().reshape(-1)
+        return scores
 
     if train_func != None:
         print(f"model performance validation loss / accuracy: {val_losses[-1]}")

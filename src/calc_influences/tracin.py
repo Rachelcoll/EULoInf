@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from tqdm.auto import tqdm
 from logging_config import logger
+from utils import load_checkpoint
+from torch.utils.data import DataLoader, Dataset
 
 def influence_at_checkpoints_tracin(traindata, testdata, model, criterion, checkpoint_filepaths, lr=0.001):
     scores = []
@@ -14,34 +16,31 @@ def influence_at_checkpoints_tracin(traindata, testdata, model, criterion, check
 
 def influence_at_checkpoints_tracin_updated(traindata, testdata, model, criterion, checkpoint_filepaths, lr=0.001):
     scores = []
-    ckpt_filepaths = []
     for i, checkpoint in enumerate(tqdm(checkpoint_filepaths, desc=f"Calculating influence scores with Tracin")):
-        if len(ckpt_filepaths) == 0:
-            ckpt_filepaths.append(checkpoint)
-        else:
-            ckpt_filepaths = [ckpt_filepaths[-1]] + [checkpoint]
-        score = calculate_tracin_score(model, ckpt_filepaths, traindata, testdata, criterion, lr)
+        score = calculate_tracin_score_test_first(model, checkpoint, traindata, testdata, criterion, lr)
         scores.append(score.cpu().numpy())
     return scores
 
-def create_batch_grads(model, w, criterion, x_batch, y_batch):
-    device = model.device
+def flatten_params_like(params_like):
+    vector = []
+    for p in params_like:
+        vector.append(p.view(-1))
+    return torch.cat(vector)
+
+def create_batch_grads(model, checkpoint, criterion, x_batch, y_batch):
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    model, _, _, _ = load_checkpoint(model, optimizer, checkpoint)
     batch_size = len(x_batch)
-    grad_batch = []
-    for idx in range(batch_size):
-        model.load_state_dict(w)
-        model.eval()
+    y_pred = model(x_batch)
+    loss = criterion(y_pred, y_batch)
+    # loss.backward()
+    # grad_sample = torch.cat([param.grad.reshape(-1) if param.grad is not None else torch.zeros_like(param).reshape(-1)
+    #                          for param in model.parameters()])
+    params = tuple(p for name, p in model.named_parameters() if p.requires_grad)
+    params_grad = torch.autograd.grad(loss, params)
+    grad_batch = flatten_params_like(params_grad)
 
-        input = x_batch[idx].unsqueeze(dim=0).to(device) # make it batch_size = 1
-        gt = y_batch[idx].unsqueeze(dim=0).to(device) # make it batch_size = 1
-
-        y_pred = model(input)
-        loss = criterion(y_pred, gt)
-        loss.backward()
-        grad_sample = torch.cat([param.grad.reshape(-1) for param in model.parameters()])
-        grad_batch.append(grad_sample)
-    grad_batch = torch.stack(grad_batch, dim=0)
-    return grad_batch
+    return grad_batch, batch_size
 
 
 def calculate_tracin_score(model, ckpt_filepaths, train_dataloader, test_dataloader, criterion, lr):
@@ -68,6 +67,37 @@ def calculate_tracin_score(model, ckpt_filepaths, train_dataloader, test_dataloa
     tracins_scores = tracins_scores.mean(dim=1) 
     # tracins_scores = tracins_scores.max(dim=1).values
     return tracins_scores
+
+def calculate_tracin_score_test_first(model, checkpoint, train_dataloader, test_dataloader, criterion, lr):
+    device = model.device
+    lr = torch.tensor(lr, device=device)
+    train_dp_list = []
+    dataset = train_dataloader.dataset
+    new_train_loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        sampler=None,
+        collate_fn=train_dataloader.collate_fn,
+        num_workers=train_dataloader.num_workers,
+        worker_init_fn=train_dataloader.worker_init_fn,
+    )
+
+    # w = torch.load(checkpoint, map_location=device)["model_state_dict"]
+    test_grad = 0.0
+    for x_test, y_test in tqdm(test_dataloader, desc=f"Getting grads for test batch..."):
+        test_grad_batch, batch_size = create_batch_grads(model, checkpoint, criterion, x_test, y_test)
+        test_grad += test_grad_batch * batch_size
+    test_grads_mean = test_grad / len(test_dataloader.dataset)
+
+    for x_train, y_train in tqdm(new_train_loader, desc=f"Getting grads for train batch..."):
+        train_grad_batch, batch_size = create_batch_grads(model, checkpoint, criterion, x_train, y_train)
+        dot_product = (train_grad_batch @ test_grads_mean) * lr
+        train_dp_list.append(dot_product)
+
+    tracins_scores = torch.tensor(train_dp_list) / len(train_dataloader.dataset)
+    return tracins_scores
+
 
 
 def format_matrices(num_train_batches, num_test_batches, scores_matrix_list):

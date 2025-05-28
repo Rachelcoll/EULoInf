@@ -11,6 +11,7 @@ from src.utils import load_checkpoint
 from scipy.interpolate import griddata
 import matplotlib.patches as mpatches
 from sklearn.metrics.pairwise import cosine_similarity
+from scipy.linalg import sqrtm
 
 def pairwise_similarity(ckpts_indices):
     similarities = []
@@ -251,7 +252,46 @@ def pw_cos_similarity(ckpts_embeds):
         data_i = [embed[0] for embed in ckpts_embeds[i]]
         for j in range(len(ckpts_embeds)):
             data_j = [embed[0] for embed in ckpts_embeds[j]]
-            sim = np.mean(cosine_similarity(data_i, data_j))
+            min_sim = np.max(cosine_similarity(data_i, data_j), axis=-1)
+            sim = np.mean(min_sim)
             similarity.append(sim)
         similarities.append(similarity)
     return np.array(similarities)
+
+def calculate_fid(embeddings1, embeddings2, eps=1e-6):
+    """
+    Calculate the Fréchet Inception Distance (FID) between two distributions.
+    """
+    def get_stats(embeddings):
+        mu = np.mean(embeddings, axis=0)
+        sigma = np.cov(embeddings, rowvar=False)
+        return mu, sigma
+    
+    mu1, sigma1 = get_stats(embeddings1)
+    mu2, sigma2 = get_stats(embeddings2)
+    sigma1 += np.eye(sigma1.shape[0]) * eps
+    sigma2 += np.eye(sigma2.shape[0]) * eps
+
+    diff = mu1 - mu2
+
+    covmean = sqrtm(sigma1 @ sigma2 + eps * np.eye(sigma1.shape[0]))
+    fid = diff @ diff + np.trace(sigma1 + sigma2 - 2 * covmean)
+    if np.isnan(fid):
+        return np.nan
+    if np.iscomplexobj(fid):
+        fid = fid.real
+
+    return max(fid, 0.0)
+
+def pw_fid(ckpts_embeds):
+    fid_vals = []
+    for i in tqdm(range(len(ckpts_embeds)), desc="Calculating FID", total=len(ckpts_embeds)):
+        fid_val = []
+        data_i = np.array([embed[0] for embed in ckpts_embeds[i]])
+        for j in tqdm(range(len(ckpts_embeds)), desc="Calculating FID for each checkpoint", total=len(ckpts_embeds)):
+            data_j = np.array([embed[0] for embed in ckpts_embeds[j]])
+
+            fid = calculate_fid(data_i, data_j)
+            fid_val.append(fid)
+        fid_vals.append(fid_val)
+    return np.array(fid_vals)

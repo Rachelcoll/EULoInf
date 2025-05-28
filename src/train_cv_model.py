@@ -127,7 +127,7 @@ logger.info("Starting model training...")
 num_epochs = args.num_epochs
 checkpoint_labels = args.ckpt_list
 logger.info(f"Checkpoint Labels: {checkpoint_labels}")
-dir_ckpt = os.path.join(args.dir_save_ckpt, model_name + "-updated")
+dir_ckpt = os.path.join(args.dir_save_ckpt, model_name)
 os.makedirs(dir_ckpt, exist_ok=True)
 
 train_func_kwargs = {
@@ -192,7 +192,7 @@ validate_list_tracin, rand_list_tracin = validate_influence(influences=dogfish_i
 
 def save_info():
     logger.info("Saving train tensors...")
-    dir_tensors = os.path.join(args.dir_save_tensors, "dogfish-updated")
+    dir_tensors = os.path.join(args.dir_save_tensors, "dogfish")
     os.makedirs(dir_tensors, exist_ok=True)
 
     save_objs_dict = {

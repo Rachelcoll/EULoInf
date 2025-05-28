@@ -95,7 +95,7 @@ def plot_var_acc_legends(x_vals, ckpt_labels, accuracies, data,
     fig.legend(loc='upper left', bbox_to_anchor=(1,1))
     plt.show()
 
-def plot_similar_indices(pw_similarities_lowp, pw_similarities_highp, ckpt_labels, p):
+def plot_similar_indices(pw_similarities_lowp, ckpt_labels, p, pw_similarities_highp=None):
     fig = plt.figure(figsize=(10, 8))
     ax1 = fig.add_subplot(211)
     im1 = ax1.imshow(pw_similarities_lowp, cmap='viridis', interpolation='nearest')
@@ -104,23 +104,33 @@ def plot_similar_indices(pw_similarities_lowp, pw_similarities_highp, ckpt_label
     ax1.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
     ax1.set_title(f'Checkpoint Pairwise Top {p*100}% Influential Point Similarity Heatmap')
 
-    ax2 = fig.add_subplot(212)
-    im2 = ax2.imshow(pw_similarities_highp, cmap='viridis', interpolation='nearest')
-    fig.colorbar(im2, ax=ax2, label='Similarity')
-    ax2.set_xticks(range(len(ckpt_labels)), ckpt_labels)
-    ax2.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
-    ax2.set_title(f'Checkpoint Pairwise Top {0.1*100}% Influential Point Similarity Heatmap')
-    plt.tight_layout()
+    if pw_similarities_highp is not None:
+        ax2 = fig.add_subplot(212)
+        im2 = ax2.imshow(pw_similarities_highp, cmap='viridis', interpolation='nearest')
+        fig.colorbar(im2, ax=ax2, label='Similarity')
+        ax2.set_xticks(range(len(ckpt_labels)), ckpt_labels)
+        ax2.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
+        ax2.set_title(f'Checkpoint Pairwise Top {0.1*100}% Influential Point Similarity Heatmap')
+        plt.tight_layout()
 
     plt.show()
     
-def plot_cosine_similarity(pw_similarities_lowp, ckpt_labels, p):
+def plot_cosine_similarity(pw_similarities, ckpt_labels, p, scoring_method, kind="Top"):
     fig = plt.figure(figsize=(10, 8))
     ax1 = fig.add_subplot()
-    im1 = ax1.imshow(pw_similarities_lowp, cmap='viridis', interpolation='nearest')
+    im1 = ax1.imshow(pw_similarities, cmap='viridis', interpolation='nearest')
     fig.colorbar(im1, ax=ax1, label='Similarity')
     ax1.set_xticks(range(len(ckpt_labels)), ckpt_labels)
     ax1.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
-    ax1.set_title(f'Checkpoint Pairwise Top {p*100}% Influential Point Similarity Heatmap')
+    ax1.set_title(f'{scoring_method}: Checkpoint Pairwise {kind} {p*100}% Influential Point Similarity Heatmap')
     plt.show()
     
+def plot_fid_vals(ckpt_wise_fids, ckpt_labels, p):
+    fig = plt.figure(figsize=(10, 8))
+    ax1 = fig.add_subplot()
+    im1 = ax1.imshow(ckpt_wise_fids, cmap='viridis', interpolation='nearest')
+    fig.colorbar(im1, ax=ax1, label='FID Value')
+    ax1.set_xticks(range(len(ckpt_labels)), ckpt_labels)
+    ax1.set_yticks(range(len(ckpt_labels)), [f'Checkpoint {i}' for i in ckpt_labels])
+    ax1.set_title(f'Checkpoint Pairwise Top {p*100}% Influential Point FID Heatmap')
+    plt.show()

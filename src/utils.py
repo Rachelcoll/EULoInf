@@ -11,7 +11,11 @@ from response_types import ModelEvalObjects
 def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
-
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def incremental_save(args, obj, step_name):
     dir_tensors = os.path.join(args.dir_save_tensors, f"tmp_saves/{args.data_name}")
@@ -120,6 +124,7 @@ def rest_data(ckpt_influences, inf_num, train_dataset):
 
 def validate_influence(influences, train_dataset, test_dataloader, model_class, criterion, device, checkpoint_filepaths, checkpoint_labels, p, predict_func):
     # top_ckpts_embeds = top_last_influences(influences, train_dataset, int(p*num_data))
+    set_seed()
     num_data = len(train_dataset)
     random_indices = random_idx(influences, train_dataset, num_data, 1 - p)
     validate_list = []

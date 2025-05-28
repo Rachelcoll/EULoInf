@@ -90,6 +90,26 @@ class AutogradInfluenceModule(BaseInfluenceModule):
         return self.inverse_hess @ vec
 
 
+class BlankInfluenceModule(BaseInfluenceModule):
+    def __init__(
+            self,
+            model: nn.Module,
+            objective: BaseObjective,
+            train_loader: data.DataLoader,
+            test_loader: data.DataLoader,
+            device: torch.device,
+    ):
+        super().__init__(
+            model=model,
+            objective=objective,
+            train_loader=train_loader,
+            test_loader=test_loader,
+            device=device,
+        )
+        hess = 0.0
+    def inverse_hvp(self, vec):
+        return vec
+
 class CGInfluenceModule(BaseInfluenceModule):
     r"""An influence module that computes inverse-Hessian vector products
     using the method of (truncated) Conjugate Gradients (CG).
