@@ -9,6 +9,7 @@ from load_models import DigitNet, V3FC, TextCNN
 from calc_influences.influence_function import influence_at_checkpoints_if
 from calc_influences.tracin import influence_at_checkpoints_tracin, influence_at_checkpoints_tracin_updated
 from calc_influences.tmc_shapley import influence_at_checkpoints_tmc_shapley
+from data_filter.filter import list_support_data
 from datetime import datetime
 from logging_config import logger
 
@@ -78,6 +79,25 @@ train_func_kwargs = {
 checkpoint_filepaths, model_eval_obj = train_func_classification(**train_func_kwargs)
 save_objs_dict = {"model_eval_obj": model_eval_obj}
 incremental_save(args, save_objs_dict, step_name="training")
+
+# Get support data indices
+if model_name == "DigitNet":
+    activation_func = "softmax"
+else:
+    activation_func = "sigmoid"
+
+support_set_kwargs = {
+    "model": model,
+    "checkpoint_filepaths": checkpoint_filepaths, 
+    "train_dataloader": train_loader,
+    "lower_bound": 50,
+    "upper_bound": 80,
+    "activation_func": activation_func,
+    "device": device,
+}
+support_indices = list_support_data(**support_set_kwargs)
+save_objs_dict.update({"support_indices": support_indices})
+incremental_save(args, save_objs_dict, step_name="support_indices")
 
 # INFLUENCE calculations
 if "if" in args.scoring_methods:

@@ -18,8 +18,8 @@ model_name="v3fc"
         --ckpt_list 1 2 3 5 10 15 20 40 60 80 100 \
         --dir_save_ckpt "$dir_save_ckpt" \
         --dir_save_tensors "$dir_save_tensors" \
-        --scoring_methods  tracin \
-        --appro no_hessian \
+        --scoring_methods  if \
+        # --appro no_hessian \
 
 wait
 echo "All done"
