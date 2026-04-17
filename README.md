@@ -1,3 +1,4 @@
-# [ACL 2026 Findings] EULoInf: Efficient Hessian-Free Entropy Based Uncertainty-Aware Data Influence Approximation
+# EULoInf
 
+[ACL 2026 Findings] EULoInf: Efficient Hessian-Free Entropy Based Uncertainty-Aware Data Influence Approximation
 The code will be available soon.
